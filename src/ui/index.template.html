@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Analizador de CSV</title>
+<style>
+:root{--bg:#f6f6f4;--panel:#fff;--text:#1a1a1a;--muted:#6b6b6b;--line:#e2e2de;--accent:#2563eb;--logo:none;--crit-ink:#b91c1c;--warn-ink:#b45309;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141414;--panel:#1e1e1e;--text:#ececec;--muted:#9a9a9a;--line:#333;--accent:#6ea0ff;--logo:invert(1);--crit-ink:#fca5a5;--warn-ink:#fbbf24;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141414;--panel:#1e1e1e;--text:#ececec;--muted:#9a9a9a;--line:#333;--accent:#6ea0ff;--logo:invert(1);--crit-ink:#fca5a5;--warn-ink:#fbbf24;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;display:flex;flex-direction:column}
+header,footer{display:flex;align-items:center;gap:12px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+footer{border-top:1px solid var(--line);border-bottom:0;margin-top:auto;color:var(--muted);font-size:13px}
+.logo{height:34px;filter:var(--logo)} footer .logo{height:22px}
+h1{font-size:17px;margin:0 18px 0 0}
+nav{display:flex;gap:4px}
+nav button{border:0;background:none;color:var(--muted);padding:7px 14px;border-radius:8px;font:inherit;cursor:pointer}
+nav button.on{background:var(--bg);color:var(--text);font-weight:600}
+.wrap{display:grid;grid-template-columns:310px 1fr;gap:14px;padding:14px 18px;align-items:start}
+@media(max-width:820px){.wrap{grid-template-columns:1fr}}
+aside,.box,table,.cw,.empty{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+aside{padding:12px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 150px);overflow:auto}
+@media(max-width:820px){aside{max-height:none}}
+.drop{display:block;text-align:center;border:2px dashed var(--line);border-radius:10px;padding:16px;cursor:pointer;color:var(--muted)}
+.drop:hover{border-color:var(--accent)} .drop span{font-size:12px}
+.file{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.file small,small,.muted{color:var(--muted);display:block;font-size:12px}
+.x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:14px}
+.box{padding:10px;display:flex;flex-direction:column;gap:8px}
+h3{margin:0;font-size:13px}
+select,input,button{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 8px;max-width:100%}
+button{cursor:pointer} button:hover{border-color:var(--accent)}
+.row{display:flex;gap:6px} .row input{flex:1;min-width:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+.bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:12px}
+.bar label{display:flex;gap:6px;align-items:center}
+.si{display:flex;gap:6px;padding:2px 0;font-size:13px;cursor:pointer} .si input{margin-top:3px}
+summary{cursor:pointer;font-weight:600;padding:4px 0}
+.warn{margin:0;font-size:12px;color:#b45309}
+.cw{position:relative;margin-bottom:10px;padding:4px;border-radius:12px}
+canvas{display:block;width:100%}
+.tip{position:absolute;top:14px;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 11px;font-size:12px;box-shadow:0 8px 28px #0003;z-index:2;font-variant-numeric:tabular-nums;line-height:1.6}
+.sel{position:absolute;top:18px;bottom:32px;background:#2563eb33;border:1px solid var(--accent);pointer-events:none}
+i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;margin-bottom:14px}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap} td:first-child{white-space:normal} th:first-child,td:first-child{text-align:left}
+tr:last-child td{border-bottom:0} th{color:var(--muted);font-weight:600;font-size:12px}
+.up{color:var(--accent);font-weight:600} .dn{color:#d97706;font-weight:600}
+.empty{padding:36px 20px;text-align:center;color:var(--muted)}
+#main{min-width:0;overflow-x:auto}
+.exp{display:flex;gap:6px;align-items:center;margin-left:auto}
+.tip{max-width:400px}
+#toast{position:fixed;bottom:56px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:9}
+h3.t{margin:4px 0 8px;display:flex;align-items:center;gap:10px}
+.tip small{display:inline}
+.b{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.b.crit{background:rgba(220,38,38,.15);color:var(--crit-ink)} .b.warn{background:rgba(245,158,11,.2);color:var(--warn-ink)}
+.chips{display:flex;gap:6px;margin-left:auto}
+table.al th,table.al td{text-align:left;white-space:nowrap} table.al td.p{white-space:normal} table.al td.n,table.al th.n{text-align:right}
+.go{padding:3px 10px;font-size:12px}
+.more{display:block;margin:0 auto 14px}
+.ah{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:2px 2px 10px}
+.ah small{color:var(--muted)}
+.nr{margin:2px 4px 16px;font-size:12px}
+.ok{color:var(--muted)}
+table.al{margin-bottom:10px}
+</style>
+</head>
+<body>
+<header>
+  <img class="logo" alt="Logo">
+  <h1>Analizador de CSV</h1>
+  <nav><button data-tab="explore" class="on">Explorar</button><button data-tab="compare">Comparar</button><button data-tab="thresholds">Umbrales</button></nav>
+</header>
+<div class="wrap"><aside id="side"></aside><main id="main"></main></div>
+<footer><img class="logo" alt=""><span>Desarrollado por Tomas Sandoval</span></footer>
+<div id="toast" hidden></div>
+<script>
+const LOGO = "data:image/png;base64,__LOGO__";
+/*CORE*/
+//--UI--
+/*UI*/
+</script>
+</body>
+</html>
