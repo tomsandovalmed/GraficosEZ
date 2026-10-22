@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Analizador de CSV</title>
+<style>
+:root{--bg:#f6f6f4;--panel:#fff;--text:#1a1a1a;--muted:#6b6b6b;--line:#e2e2de;--accent:#2563eb;--logo:none;--crit-ink:#b91c1c;--warn-ink:#b45309;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141414;--panel:#1e1e1e;--text:#ececec;--muted:#9a9a9a;--line:#333;--accent:#6ea0ff;--logo:invert(1);--crit-ink:#fca5a5;--warn-ink:#fbbf24;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141414;--panel:#1e1e1e;--text:#ececec;--muted:#9a9a9a;--line:#333;--accent:#6ea0ff;--logo:invert(1);--crit-ink:#fca5a5;--warn-ink:#fbbf24;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;display:flex;flex-direction:column}
+header,footer{display:flex;align-items:center;gap:12px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+footer{border-top:1px solid var(--line);border-bottom:0;margin-top:auto;color:var(--muted);font-size:13px}
+.logo{height:34px;filter:var(--logo)} footer .logo{height:22px}
+h1{font-size:17px;margin:0 18px 0 0}
+nav{display:flex;gap:4px}
+nav button{border:0;background:none;color:var(--muted);padding:7px 14px;border-radius:8px;font:inherit;cursor:pointer}
+nav button.on{background:var(--bg);color:var(--text);font-weight:600}
+.wrap{display:grid;grid-template-columns:310px 1fr;gap:14px;padding:14px 18px;align-items:start}
+@media(max-width:820px){.wrap{grid-template-columns:1fr}}
+aside,.box,table,.cw,.empty{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+aside{padding:12px;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 150px);overflow:auto}
+@media(max-width:820px){aside{max-height:none}}
+.drop{display:block;text-align:center;border:2px dashed var(--line);border-radius:10px;padding:16px;cursor:pointer;color:var(--muted)}
+.drop:hover{border-color:var(--accent)} .drop span{font-size:12px}
+.file{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding-bottom:8px}
+.file small,small,.muted{color:var(--muted);display:block;font-size:12px}
+.x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:14px}
+.box{padding:10px;display:flex;flex-direction:column;gap:8px}
+h3{margin:0;font-size:13px}
+select,input,button{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 8px;max-width:100%}
+button{cursor:pointer} button:hover{border-color:var(--accent)}
+.row{display:flex;gap:6px} .row input{flex:1;min-width:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:620px){.grid2{grid-template-columns:1fr}}
+.bar{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:12px}
+.bar label{display:flex;gap:6px;align-items:center}
+.si{display:flex;gap:6px;padding:2px 0;font-size:13px;cursor:pointer} .si input{margin-top:3px}
+summary{cursor:pointer;font-weight:600;padding:4px 0}
+.warn{margin:0;font-size:12px;color:#b45309}
+.cw{position:relative;margin-bottom:10px;padding:4px;border-radius:12px}
+canvas{display:block;width:100%}
+.tip{position:absolute;top:14px;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 11px;font-size:12px;box-shadow:0 8px 28px #0003;z-index:2;font-variant-numeric:tabular-nums;line-height:1.6}
+.sel{position:absolute;top:18px;bottom:32px;background:#2563eb33;border:1px solid var(--accent);pointer-events:none}
+i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;margin-bottom:14px}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap} td:first-child{white-space:normal} th:first-child,td:first-child{text-align:left}
+tr:last-child td{border-bottom:0} th{color:var(--muted);font-weight:600;font-size:12px}
+.up{color:var(--accent);font-weight:600} .dn{color:#d97706;font-weight:600}
+.empty{padding:36px 20px;text-align:center;color:var(--muted)}
+#main{min-width:0;overflow-x:auto}
+.exp{display:flex;gap:6px;align-items:center;margin-left:auto}
+.tip{max-width:400px}
+#toast{position:fixed;bottom:56px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:9}
+h3.t{margin:4px 0 8px;display:flex;align-items:center;gap:10px}
+.tip small{display:inline}
+.b{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.b.crit{background:rgba(220,38,38,.15);color:var(--crit-ink)} .b.warn{background:rgba(245,158,11,.2);color:var(--warn-ink)}
+.chips{display:flex;gap:6px;margin-left:auto}
+table.al th,table.al td{text-align:left;white-space:nowrap} table.al td.p{white-space:normal} table.al td.n,table.al th.n{text-align:right}
+.go{padding:3px 10px;font-size:12px}
+.more{display:block;margin:0 auto 14px}
+.ah{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:2px 2px 10px}
+.ah small{color:var(--muted)}
+.nr{margin:2px 4px 16px;font-size:12px}
+.ok{color:var(--muted)}
+table.al{margin-bottom:10px}
+</style>
+</head>
+<body>
+<header>
+  <img class="logo" alt="Logo">
+  <h1>Analizador de CSV</h1>
+  <nav><button data-tab="explore" class="on">Explorar</button><button data-tab="compare">Comparar</button><button data-tab="thresholds">Umbrales</button></nav>
+</header>
+<div class="wrap"><aside id="side"></aside><main id="main"></main></div>
+<footer><img class="logo" alt=""><span>Desarrollado por Tomas Sandoval</span></footer>
+<div id="toast" hidden></div>
+<script>
+const LOGO = "data:image/png;base64,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";
+/** Detecta el separador contando candidatos fuera de comillas en la cabecera. */
+function detectDelimiter(line        )         {
+  let best = ",", bestN = 0;
+  for (const d of [",", ";", "\t", "|"]) {
+    let n = 0, q = false;
+    for (const ch of line) {
+      if (ch === '"') q = !q;
+      else if (ch === d && !q) n++;
+    }
+    if (n > bestN) { best = d; bestN = n; }
+  }
+  return best;
+}
+
+/** Lector CSV tolerante: BOM, CRLF/LF, comillas, comillas escapadas y líneas vacías. */
+function parseCsv(text        , delimiter         )                                          {
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  const nl = text.indexOf("\n");
+  const d = delimiter ?? detectDelimiter(nl < 0 ? text : text.slice(0, nl));
+  const rows             = [];
+  let row           = [], field = "", q = false;
+  const endRow = () => {
+    row.push(field); field = "";
+    if (row.length > 1 || row[0].trim() !== "") rows.push(row);
+    row = [];
+  };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') q = true;
+    else if (c === d) { row.push(field); field = ""; }
+    else if (c === "\n") endRow();
+    else if (c !== "\r") field += c;
+  }
+  if (field !== "" || row.length) endRow();
+  return { delimiter: d, rows };
+}
+
+const DT = /^\s*(\d{1,4})[\/\-.](\d{1,2})[\/\-.](\d{1,4})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,6}))?)?)?\s*Z?\s*$/;
+
+                             
+                                                                                                       
+                                                                            
+ 
+
+/** Deduce el formato de fecha a partir de una muestra. Devuelve null si no parece una columna de fechas. */
+function buildTimeParser(samples          )                    {
+  const ok = samples.map((s) => DT.exec(s)).filter(Boolean)                     ;
+  if (!samples.length || ok.length / samples.length < 0.95) return null;
+  const ymd = ok.every((m) => m[1].length === 4);
+  const dmy = !ymd && ok.some((m) => +m[1] > 12);
+  const ambiguous = !ymd && !dmy && !ok.some((m) => +m[2] > 12);
+  const parse = (s        ) => {
+    const m = DT.exec(s);
+    if (!m) return NaN;
+    let [y, mo, d] = ymd ? [+m[1], +m[2], +m[3]] : dmy ? [+m[3], +m[2], +m[1]] : [+m[3], +m[1], +m[2]];
+    if (y < 100) y += 2000;
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return NaN;
+    return Date.UTC(y, mo - 1, d, +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0), Math.round(+("0." + (m[7] ?? "0")) * 1000));
+  };
+  return { parse, ambiguous };
+}
+
+                                
+               
+                                                          
+                  
+                                                                                    
+                                                                                      
+               
+ 
+
+const RE = /^\\\\([^\\]+)\\(.+)\\([^\\]+)$/;
+
+function guessUnit(counter        )         {
+  if (counter.startsWith("%") || /ratio/i.test(counter)) return "%";
+  if (/\/sec$/i.test(counter)) return "/s";
+  if (/\(KB\)/i.test(counter)) return "KB";
+  if (/MBytes/i.test(counter)) return "MB";
+  if (/\(ms\)/i.test(counter)) return "ms";
+  return "";
+}
+
+/** Interpreta cabeceras tipo \\HOST\Objeto\Contador. Devuelve null si no son de Perfmon. */
+function parsePerfmonHeader(h        )                       {
+  const m = RE.exec(h.trim());
+  if (!m) return null;
+  let object = m[2], sqlInstance                    ;
+  const sm = /^(?:MSSQL\$([^:]+)|SQLServer):(.*)$/.exec(object);
+  if (sm) { sqlInstance = sm[1] ?? "(default)"; object = sm[2]; }
+  return { host: m[1], object, counter: m[3], sqlInstance, key: `${object}\\${m[3]}`, unit: guessUnit(m[3]) };
+}
+
+
+
+
+
+                                                                                                          
+                                       
+             
+                 
+                
+               
+                                                                    
+                  
+                          
+ 
+                          
+                                     
+                                                              
+                                                             
+ 
+                          
+                                                          
+                
+                                                       
+                   
+                                                                          
+                   
+                     
+ 
+
+const isEmpty = (s                    ) => s === undefined || s.trim() === "";
+
+function computeStats(v              )        {
+  const f           = [];
+  for (const x of v) if (!Number.isNaN(x)) f.push(x);
+  if (!f.length) return { count: 0, min: NaN, max: NaN, mean: NaN, std: NaN, p95: NaN };
+  f.sort((a, b) => a - b);
+  const mean = f.reduce((a, b) => a + b, 0) / f.length;
+  const std = Math.sqrt(f.reduce((a, b) => a + (b - mean) ** 2, 0) / f.length);
+  return { count: f.length, min: f[0], max: f[f.length - 1], mean, std, p95: f[Math.floor(0.95 * (f.length - 1))] };
+}
+
+/** Convierte cualquier CSV con una columna de fecha/hora en un Dataset genérico. */
+function parseDataset(text        , fileName        )          {
+  const { delimiter, rows } = parseCsv(text);
+  if (rows.length < 2) throw new Error("El archivo no tiene filas de datos");
+  const header = rows[0].map((h) => h.trim()), body = rows.slice(1), nCols = header.length;
+  const cell = (r        , c        ) => body[r][c];
+
+  // 1) columna de tiempo: la primera que parezca fecha
+  let timeCol = -1, tp = null                                      ;
+  for (let c = 0; c < nCols && !tp; c++) {
+    const sample           = [];
+    for (let r = 0; r < body.length && sample.length < 200; r++) if (!isEmpty(cell(r, c))) sample.push(cell(r, c));
+    tp = buildTimeParser(sample);
+    if (tp) timeCol = c;
+  }
+  if (!tp) throw new Error("No se encontró una columna de fecha/hora reconocible");
+
+  // 2) tiempos válidos, orden cronológico y duplicados
+  const t0 = body.map((_, r) => tp .parse(cell(r, timeCol) ?? ""));
+  const valid           = [];
+  let badTimeRows = 0, outOfOrder = 0, prev = -Infinity;
+  t0.forEach((t, r) => {
+    if (Number.isNaN(t)) { badTimeRows++; return; }
+    if (t < prev) outOfOrder++;
+    prev = t; valid.push(r);
+  });
+  valid.sort((a, b) => t0[a] - t0[b]);
+  const keep           = [];
+  let duplicates = 0;
+  for (const r of valid) {
+    if (keep.length && t0[keep[keep.length - 1]] === t0[r]) duplicates++;
+    else keep.push(r);
+  }
+  const time = Float64Array.from(keep, (r) => t0[r]);
+
+  // 3) columnas: numéricas -> series, texto -> etiquetas
+  const series           = [], tags                         = {};
+  for (let c = 0; c < nCols; c++) {
+    if (c === timeCol) continue;
+    let ne = 0, nn = 0;
+    for (let r = 0; r < body.length; r++) {
+      const v = cell(r, c);
+      if (isEmpty(v)) continue;
+      ne++;
+      if (Number.isFinite(Number(delimiter === ";" ? v.trim().replace(",", ".") : v.trim()))) nn++;
+    }
+    if (!ne) continue;
+    if (nn / ne < 0.9) {
+      const freq = new Map                ();
+      for (let r = 0; r < body.length; r++) { const v = (cell(r, c) ?? "").trim(); if (v) freq.set(v, (freq.get(v) ?? 0) + 1); }
+      tags[header[c]] = [...freq.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      continue;
+    }
+    const values = new Float64Array(keep.length);
+    keep.forEach((r, i) => {
+      const v = cell(r, c);
+      const n = isEmpty(v) ? NaN : Number(delimiter === ";" ? v.trim().replace(",", ".") : v.trim());
+      values[i] = Number.isFinite(n) ? n : NaN;
+    });
+    const pm = parsePerfmonHeader(header[c]) ?? undefined;
+    const st = computeStats(values);
+    series.push({
+      id: `${c}`, header: header[c], label: pm ? `${pm.object} · ${pm.counter}` : header[c] || `Columna ${c + 1}`,
+      unit: pm?.unit ?? "", values, missing: keep.length - st.count, perfmon: pm, ...st,
+    });
+  }
+
+  // 4) calidad del dato
+  const steps = Array.from(time.subarray(1), (t, i) => t - time[i]).sort((a, b) => a - b);
+  const medianStepMs = steps.length ? steps[Math.floor(steps.length / 2)] : 0;
+  const gaps                                 = [];
+  for (let i = 1; i < time.length && medianStepMs; i++)
+    if (time[i] - time[i - 1] > 3 * medianStepMs) gaps.push({ from: time[i - 1], to: time[i] });
+
+  const hosts = series.map((s) => s.perfmon?.host).filter(Boolean)            ;
+  const host = hosts.length ? hosts.sort((a, b) => hosts.filter((x) => x === b).length - hosts.filter((x) => x === a).length)[0] : undefined;
+
+  const warnings           = [];
+  if (tp.ambiguous) warnings.push("Formato de fecha ambiguo: se asumió mes/día/año.");
+  if (outOfOrder) warnings.push(`${outOfOrder} filas venían fuera de orden y se ordenaron por fecha.`);
+  if (duplicates) warnings.push(`${duplicates} filas con fecha repetida se descartaron.`);
+  if (badTimeRows) warnings.push(`${badTimeRows} filas con fecha inválida se descartaron.`);
+
+  return {
+    fileName, delimiter, timeHeader: header[timeCol], host, time, series, tags, warnings,
+    quality: { rowsRead: body.length, rowsKept: keep.length, badTimeRows, outOfOrder, duplicates, medianStepMs, gaps },
+  };
+}
+
+                                        // lt: ideal por debajo del límite · gt: ideal por encima
+                       
+                           
+                                                          
+                                                                             
+                                       
+                            
+                                                                           
+ 
+                                                 
+
+const PROFILES                                                 = {
+  OLTP: { warn: 95, crit: 90 },
+  OLAP: { warn: 80, crit: 70 },
+};
+
+/** Valores ideales de la tabla de referencia. `warn` es el límite ideal; `crit` es un margen editable. */
+const DEFAULT_RULES         = [
+  { id: "pages", name: "Memory\\Pages/sec", ideal: "< 20", pat: "^Memory\\\\Pages/sec$", dir: "lt", warn: 20, crit: 40 },
+  { id: "cpu", name: "% Processor Time", ideal: "< 80 %", pat: "Processor.*% Processor Time$", dir: "lt", warn: 80, crit: 90 },
+  { id: "bchr", name: "Buffer cache hit ratio", ideal: "> 95 % (OLTP) · > 80 % (OLAP) · cercano a 100", pat: "Buffer cache hit ratio$", dir: "gt", warn: 95, crit: 90, profile: "OLTP" },
+  { id: "tx", name: "Transactions/sec", ideal: "Variable", pat: "Transactions/sec$", dir: "none", warn: 0, crit: 0 },
+  { id: "sess", name: "Cantidad de sesiones (User Connections)", ideal: "Variable", pat: "User Connections$", dir: "none", warn: 0, crit: 0 },
+  { id: "comp", name: "SQL Compilations/sec", ideal: "<= 100", pat: "SQL Compilations/sec$", dir: "lt", warn: 100, crit: 200 },
+  { id: "mem", name: "Target vs Total Server Memory", ideal: "Total igual o menor que Target", pat: "Total Server Memory", dir: "none", warn: 0, crit: 0, relation: true },
+  { id: "locks", name: "Locks: Lock Requests/sec", ideal: "< 1000", pat: "Lock Requests/sec$", dir: "lt", warn: 1000, crit: 2000 },
+];
+
+/** Regla que corresponde a una serie (por su clave Objeto\Contador). */
+function ruleFor(key        , rules        )                   {
+  return rules.find((r) => new RegExp(r.pat, "i").test(key));
+}
+
+function zoneOf(v        , r      )       {
+  if (Number.isNaN(v) || r.dir === "none") return "ok";
+  if (r.dir === "lt") return v > r.crit ? "critical" : v > r.warn ? "warning" : "ok";
+  return v < r.crit ? "critical" : v < r.warn ? "warning" : "ok";
+}
+
+/** Porcentaje de muestras en Warning y en Critical. */
+function compliance(values              , r      ) {
+  let n = 0, w = 0, c = 0;
+  for (const v of values) {
+    if (Number.isNaN(v)) continue;
+    n++;
+    const z = zoneOf(v, r);
+    if (z === "warning") w++; else if (z === "critical") c++;
+  }
+  return { n, warningPct: n ? (w / n) * 100 : 0, criticalPct: n ? (c / n) * 100 : 0 };
+}
+
+/** Porcentaje de muestras en que `a` supera a `b` (p. ej. Total > Target Server Memory). */
+function relationPct(a              , b              )         {
+  let n = 0, k = 0;
+  for (let i = 0; i < a.length; i++) {
+    if (Number.isNaN(a[i]) || Number.isNaN(b[i])) continue;
+    n++;
+    if (a[i] > b[i]) k++;
+  }
+  return n ? (k / n) * 100 : 0;
+}
+
+                        
+                                                                
+                                                                 
+                                                                             
+                  
+ 
+
+/**
+ * Agrupa muestras consecutivas fuera del rango ideal en episodios (eventos).
+ * Un hueco de datos mayor a `maxGapMs` corta el episodio.
+ */
+function findAlerts(time              , values              , r      , maxGapMs = Infinity)          {
+  const out          = [];
+  if (r.dir === "none" || r.relation) return out;
+  const worse = r.dir === "lt" ? (a        , b        ) => a > b : (a        , b        ) => a < b;
+  let cur               = null, last = -Infinity;
+  for (let i = 0; i < time.length; i++) {
+    const v = values[i];
+    if (Number.isNaN(v)) continue;
+    const z = zoneOf(v, r);
+    if (z === "ok" || (cur && time[i] - last > maxGapMs)) {
+      if (cur) { out.push(cur); cur = null; }
+      if (z === "ok") { last = time[i]; continue; }
+    }
+    if (!cur) cur = { start: time[i], end: time[i], severity: z                          , peak: v, peakAt: time[i], samples: 1 };
+    else {
+      cur.end = time[i]; cur.samples++;
+      if (z === "critical") cur.severity = "critical";
+      if (worse(v, cur.peak)) { cur.peak = v; cur.peakAt = time[i]; }
+    }
+    last = time[i];
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+
+
+/** Clave para emparejar series entre archivos: contador Perfmon normalizado o el nombre de la columna. */
+const keyOf = (s        ) => s.perfmon?.key ?? s.header;
+
+/** Recorta un dataset al rango [from, to) en epoch ms. */
+function sliceDataset(d         , from        , to        )          {
+  const idx           = [];
+  d.time.forEach((t, i) => { if (t >= from && t < to) idx.push(i); });
+  return {
+    ...d,
+    time: Float64Array.from(idx, (i) => d.time[i]),
+    series: d.series.map((s) => {
+      const values = Float64Array.from(idx, (i) => s.values[i]);
+      const st = computeStats(values);
+      return { ...s, values, missing: idx.length - st.count, ...st };
+    }),
+    quality: { ...d.quality, rowsKept: idx.length },
+  };
+}
+
+                             
+                           
+                                                       
+ 
+const pct = (a        , b        ) => (a === 0 ? NaN : ((b - a) / Math.abs(a)) * 100);
+
+/** Compara una misma métrica entre dos periodos. Devuelve null si la métrica no existe en ambos. */
+function comparePeriods(prev         , curr         , key        )                    {
+  const a = prev.series.find((s) => keyOf(s) === key), b = curr.series.find((s) => keyOf(s) === key);
+  if (!a || !b) return null;
+  return {
+    prev: computeStats(a.values), curr: computeStats(b.values),
+    deltaPct: { mean: pct(a.mean, b.mean), p95: pct(a.p95, b.p95), max: pct(a.max, b.max) },
+  };
+}
+
+//--UI--
+"use strict";
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
+const DAYMS = 86400000;
+const fmtT = (t) => new Date(t).toISOString().slice(0, 16).replace("T", " ");
+const dstr = (t) => new Date(t).toISOString().slice(0, 10);
+const dms = (s) => Date.parse(s + "T00:00:00Z");
+const fmtN = (n) => { if (!Number.isFinite(n)) return "–"; const a = Math.abs(n); return a >= 1e6 ? (n / 1e6).toFixed(2) + "M" : a >= 1e4 ? (n / 1e3).toFixed(1) + "k" : a >= 100 ? n.toFixed(0) : n.toFixed(2); };
+
+/* ---------- umbrales (editables, guardados en el navegador) ---------- */
+const RKEY = "analizador-csv.umbrales.v1";
+const cloneRules = () => JSON.parse(JSON.stringify(DEFAULT_RULES));
+function loadRules() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(RKEY));
+    if (Array.isArray(saved)) return cloneRules().map((r) => Object.assign(r, saved.find((x) => x.id === r.id) || {}, { pat: r.pat, name: r.name, ideal: r.ideal, relation: r.relation }));
+  } catch (e) { /* sin almacenamiento: se usan los valores de la tabla */ }
+  return cloneRules();
+}
+const saveRules = () => { try { localStorage.setItem(RKEY, JSON.stringify(S.rules)); } catch (e) { /* ignorar */ } };
+
+const S = { files: [], sel: [], tab: "explore", xr: null, hl: null, nid: 1, q: "", msgs: [], cmp: {}, fmt: "png", rules: loadRules(), sev: "all", sort: "date", lim: {}, rows: [] };
+const F = (id) => S.files.find((f) => f.id === +id);
+const SER = (e) => F(e.fid)?.d.series.find((s) => s.id === e.sid);
+/** Servidor (e instancia SQL con nombre) al que pertenece un archivo. */
+function origin(f) {
+  const s = f.d.series.find((x) => x.perfmon && x.perfmon.sqlInstance);
+  const inst = s && s.perfmon.sqlInstance !== "(default)" ? s.perfmon.sqlInstance : "";
+  const h = f.d.host || String(Object.values(f.d.tags)[0] || "").replace(/^[\s;]+/, "") || f.name;
+  return inst ? `${h}\\${inst}` : h;
+}
+const zonesFor = (keys) => { const rs = keys.map((k) => ruleFor(k, S.rules)), r = rs[0]; return r && r.dir !== "none" && rs.every((x) => x === r) ? r : null; };
+const toast = (m) => { const t = $("#toast"); t.textContent = m; t.hidden = false; clearTimeout(toast.h); toast.h = setTimeout(() => (t.hidden = true), 3200); };
+
+/* ---------- carga de archivos ---------- */
+async function addFiles(list) {
+  S.msgs = [];
+  for (const f of list) {
+    try {
+      const d = parseDataset(await f.text(), f.name);
+      if (!d.time.length) throw new Error("sin filas con fecha válida");
+      S.files.push({ id: S.nid++, name: f.name, d });
+      d.warnings.forEach((w) => S.msgs.push(`${f.name}: ${w}`));
+    } catch (e) { S.msgs.push(`${f.name}: no se pudo leer (${e.message})`); }
+  }
+  S.cmp = {}; render();
+}
+
+/* ---------- gráfico canvas ---------- */
+const nearest = (a, x) => { let lo = 0, hi = a.length - 1; while (hi - lo > 1) { const m = (lo + hi) >> 1; if (a[m] < x) lo = m; else hi = m; } return Math.abs(a[lo] - x) <= Math.abs(a[hi] - x) ? lo : hi; };
+const gapOf = (x) => { const d = []; for (let i = 1; i < x.length && d.length < 400; i++) d.push(x[i] - x[i - 1]); d.sort((a, b) => a - b); return d.length ? d[d.length >> 1] * 12 : Infinity; };
+const niceDays = (d) => [1, 2, 5, 7, 10, 14, 30].find((n) => n >= d) || 60;
+const WARN = "rgba(245,158,11,0.13)", CRIT = "rgba(220,38,38,0.13)", WARN_C = "#d97706", CRIT_C = "#dc2626";
+const FONT = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+/** Escala con valores redondos (0, 20, 40…) en vez de límites arbitrarios. */
+function niceScale(lo, hi, n = 5) {
+  const raw = (hi - lo || 1) / n, mag = 10 ** Math.floor(Math.log10(raw)), f = raw / mag;
+  const step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
+  const a = Math.floor(lo / step + 1e-9) * step, b = Math.ceil(hi / step - 1e-9) * step, ticks = [];
+  for (let v = a; v <= b + step / 2; v += step) ticks.push(+v.toPrecision(12));
+  return { lo: a, hi: b, ticks };
+}
+
+function drawChart(cv, lines, o = {}) {
+  const dpr = Math.max(devicePixelRatio || 1, 2), W = cv.clientWidth;
+  const st = getComputedStyle(document.documentElement), V = (n) => st.getPropertyValue(n).trim();
+  const muted = V("--muted"), grid = V("--line"), ink = V("--text"), panel = V("--panel") || "#fff";
+  // cabecera dentro del lienzo (título, subtítulo y leyenda): así también queda en la imagen exportada
+  const mc = document.createElement("canvas").getContext("2d"); mc.font = `12px ${FONT}`;
+  const leg = []; let lx = 14, ly = 0;
+  for (const l of lines) { const w = mc.measureText(l.label).width + 30; if (lx > 14 && lx + w > W - 10) { lx = 14; ly += 20; } leg.push([lx, ly, l]); lx += w + 8; }
+  const titleH = o.title ? (o.sub ? 42 : 26) : 0, legH = lines.length ? ly + 28 : 0;
+  cv.style.height = (o.h || 320) + titleH + legH + "px";
+  const H = cv.clientHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const P = { l: 52, r: 18, t: 8 + titleH + legH, b: 30 }, pw = W - P.l - P.r, ph = H - P.t - P.b;
+  c.textAlign = "left";
+  if (o.title) { c.fillStyle = ink; c.font = `600 14px ${FONT}`; c.fillText(o.title, 14, 24); if (o.sub) { c.fillStyle = muted; c.font = `12px ${FONT}`; c.fillText(o.sub, 14, 42); } }
+  c.font = `12px ${FONT}`;
+  for (const [x, y, l] of leg) { c.fillStyle = l.color; c.beginPath(); c.arc(x + 5, y + titleH + 14, 4.5, 0, Math.PI * 2); c.fill(); c.fillStyle = ink; c.fillText(l.label, x + 16, y + titleH + 18); }
+
+  // rango X
+  let x0 = Infinity, x1 = -Infinity;
+  for (const l of lines) if (l.x.length) { x0 = Math.min(x0, l.x[0]); x1 = Math.max(x1, l.x[l.x.length - 1]); }
+  if (o.xr) [x0, x1] = o.xr;
+  if (!(x1 > x0)) { x0 = 0; x1 = 1; }
+  // rango Y con escala redonda; los porcentajes no pasan de 100
+  const z = o.zones || null, pct = lines.length > 0 && lines.every((l) => l.unit === "%");
+  let gl = Infinity, gh = -Infinity;
+  for (const l of lines) for (let i = 0; i < l.x.length; i++) { const v = l.y[i]; if (l.x[i] < x0 || l.x[i] > x1) continue; if (v < gl) gl = v; if (v > gh) gh = v; }
+  if (z) { const mg = Math.abs(z.crit - z.warn); gl = Math.min(gl, z.warn, z.crit - (z.dir === "gt" ? mg : 0)); gh = Math.max(gh, z.warn, z.crit + (z.dir === "lt" ? mg : 0)); }
+  if (!Number.isFinite(gl)) { gl = 0; gh = 1; }
+  if (gl >= 0 && gl < gh * 0.35) gl = 0;
+  if (gh <= gl) gh = gl + 1;
+  let sc = niceScale(gl, gh + (gh - gl) * 0.04);
+  if (pct && sc.hi > 100) sc = { lo: sc.lo, hi: 100, ticks: sc.ticks.filter((v) => v < 100).concat(100) };
+  const G = [sc.lo, sc.hi];
+  const X = (x) => P.l + ((x - x0) / (x1 - x0)) * pw;
+  const Y = (v) => P.t + ph - ((v - G[0]) / (G[1] - G[0])) * ph;
+  const tk = (v) => { const a = Math.abs(v), t = a >= 1e6 ? +(v / 1e6).toFixed(2) + "M" : a >= 1e4 ? +(v / 1e3).toFixed(1) + "k" : String(+v.toFixed(2)); return pct ? t + "%" : t; };
+
+  // eje Y: líneas guía punteadas y valores redondos
+  c.font = `11px ${FONT}`; c.lineWidth = 1;
+  for (const v of sc.ticks) {
+    const y = Y(v);
+    c.strokeStyle = grid; c.setLineDash([3, 4]); c.beginPath(); c.moveTo(P.l, y); c.lineTo(W - P.r, y); c.stroke(); c.setLineDash([]);
+    c.fillStyle = muted; c.textAlign = "right"; c.fillText(tk(v), P.l - 8, y + 4);
+  }
+  // eje X dinámico: escala según la duración del periodo
+  const span = x1 - x0, ticks = [];
+  if (o.rel && span > 3 * DAYMS) { const step = niceDays(span / DAYMS / Math.max(2, Math.floor(pw / 90))) * DAYMS; for (let t = Math.ceil(x0 / step) * step; t <= x1; t += step) ticks.push(t); }
+  else { const nt = Math.max(2, Math.floor(pw / 120)); for (let k = 0; k <= nt; k++) ticks.push(x0 + (span * k) / nt); }
+  const fmt = (x) => o.hour ? Math.round(x) + " h" : o.rel ? (span > 3 * DAYMS ? "Día " + Math.round(x / DAYMS) : (x / 3600000).toFixed(0) + " h") : span < 2 * DAYMS ? fmtT(x).slice(11) : span < 20 * DAYMS ? fmtT(x).slice(5) : fmtT(x).slice(0, 10);
+  c.strokeStyle = grid; c.beginPath(); c.moveTo(P.l, P.t + ph + 0.5); c.lineTo(W - P.r, P.t + ph + 0.5); c.stroke();
+  for (const t of ticks) {
+    const px = X(t);
+    c.strokeStyle = grid; c.beginPath(); c.moveTo(px, P.t + ph); c.lineTo(px, P.t + ph + 4); c.stroke();
+    c.fillStyle = muted; c.textAlign = px < P.l + 24 ? "left" : px > W - P.r - 24 ? "right" : "center"; c.fillText(fmt(t), px, H - 10);
+  }
+  // franjas Warning / Critical
+  if (z) {
+    const yv = (v) => Math.max(P.t, Math.min(P.t + ph, Y(v)));
+    const band = (a, b, col, txt, tc) => {
+      const ya = yv(a), yb = yv(b), top = Math.min(ya, yb), h = Math.abs(ya - yb);
+      if (h < 1) return;
+      c.fillStyle = col; c.fillRect(P.l, top, pw, h);
+      if (h >= 17) { c.fillStyle = tc; c.font = `600 11px ${FONT}`; c.textAlign = "right"; c.fillText(txt, W - P.r - 8, top + 14); }
+    };
+    const op = z.dir === "lt" ? ">" : "<";
+    band(z.warn, z.crit, WARN, `Warning Zone ${op} ${z.warn}`, V("--warn-ink"));
+    band(z.crit, z.dir === "lt" ? G[1] : G[0], CRIT, `Critical Zone ${op} ${z.crit}`, V("--crit-ink"));
+    c.lineWidth = 1; c.setLineDash([5, 4]);
+    for (const [v, col] of [[z.warn, WARN_C], [z.crit, CRIT_C]]) { const y = Y(v); if (y >= P.t && y <= P.t + ph) { c.strokeStyle = col; c.globalAlpha = 0.8; c.beginPath(); c.moveTo(P.l, y); c.lineTo(W - P.r, y); c.stroke(); c.globalAlpha = 1; } }
+    c.setLineDash([]);
+  }
+  // evento resaltado (franja vertical sobre el periodo de la alerta)
+  if (o.hl && X(o.hl.end) >= P.l && X(o.hl.start) <= P.l + pw) {
+    const a = Math.max(P.l, X(o.hl.start)), b = Math.min(P.l + pw, X(o.hl.end)), w = Math.max(6, b - a), x = Math.min(a, P.l + pw - w);
+    c.fillStyle = "rgba(128,128,128,0.2)"; c.fillRect(x, P.t, w, ph);
+    c.strokeStyle = ink; c.globalAlpha = 0.55; c.lineWidth = 1; c.setLineDash([3, 3]); c.strokeRect(x + 0.5, P.t + 0.5, w - 1, ph - 1); c.setLineDash([]); c.globalAlpha = 1;
+  }
+  // líneas continuas con relleno degradado; los huecos largos sin datos se unen con trazo punteado
+  c.save(); c.beginPath(); c.rect(P.l, P.t - 2, pw, ph + 4); c.clip();
+  lines.forEach((l) => {
+    const gap = gapOf(l.x), segs = [], links = []; let cur = [], prev = -1, pp = null;
+    for (let j = 0; j < l.x.length; j++) {
+      const v = l.y[j]; if (Number.isNaN(v)) continue;
+      const pt = [X(l.x[j]), Y(v)];
+      if (prev >= 0 && l.x[j] - l.x[prev] > gap) { links.push([pp, pt]); segs.push(cur); cur = []; }
+      cur.push(pt); prev = j; pp = pt;
+    }
+    if (cur.length) segs.push(cur);
+    if (lines.length <= 2) {
+      const g = c.createLinearGradient(0, P.t, 0, P.t + ph); g.addColorStop(0, l.color + "30"); g.addColorStop(1, l.color + "03"); c.fillStyle = g;
+      for (const sg of segs) if (sg.length > 1) { c.beginPath(); c.moveTo(sg[0][0], P.t + ph); for (const [x, y] of sg) c.lineTo(x, y); c.lineTo(sg[sg.length - 1][0], P.t + ph); c.closePath(); c.fill(); }
+    }
+    c.strokeStyle = l.color; c.lineWidth = 1.7; c.lineJoin = "round"; c.lineCap = "round"; c.setLineDash([]);
+    for (const sg of segs) {
+      if (sg.length === 1) { c.fillStyle = l.color; c.beginPath(); c.arc(sg[0][0], sg[0][1], 1.8, 0, Math.PI * 2); c.fill(); continue; }
+      c.beginPath(); sg.forEach(([x, y], k) => (k ? c.lineTo(x, y) : c.moveTo(x, y))); c.stroke();
+    }
+    c.globalAlpha = 0.45; c.lineWidth = 1.2; c.setLineDash([2, 4]);
+    for (const [p1, p2] of links) { c.beginPath(); c.moveTo(p1[0], p1[1]); c.lineTo(p2[0], p2[1]); c.stroke(); }
+    c.globalAlpha = 1; c.setLineDash([]);
+  });
+  c.restore();
+  if (o.hl && o.hl.peak && o.hl.peak.x >= x0 && o.hl.peak.x <= x1) {
+    const px = X(o.hl.peak.x), py = Y(o.hl.peak.y);
+    c.fillStyle = o.hl.peak.color; c.strokeStyle = panel; c.lineWidth = 2.5; c.beginPath(); c.arc(px, py, 6, 0, Math.PI * 2); c.stroke(); c.fill();
+  }
+  cv._img = c.getImageData(0, 0, cv.width, cv.height);
+  cv._g = { x0, x1, P, pw, ph, W, lines, o, X, Y, dpr, panel };
+}
+
+function bind(cv, onZoom) {
+  const box = cv.parentNode, tip = box.querySelector(".tip"), selb = box.querySelector(".sel");
+  let d0 = null;
+  const px = (e) => e.clientX - cv.getBoundingClientRect().left;
+  const xAt = (p) => { const g = cv._g; return g.x0 + ((p - g.P.l) / g.pw) * (g.x1 - g.x0); };
+  const redraw = () => { const g = cv._g, c = cv.getContext("2d"); c.setTransform(1, 0, 0, 1, 0, 0); c.putImageData(cv._img, 0, 0); c.setTransform(g.dpr, 0, 0, g.dpr, 0, 0); return c; };
+  cv.onmousedown = (e) => { d0 = px(e); };
+  cv.onmousemove = (e) => {
+    const g = cv._g, p = px(e), c = redraw();
+    if (p < g.P.l || p > g.W - g.P.r) { tip.hidden = true; return; }
+    // cruz de lectura y puntos sobre cada línea
+    c.strokeStyle = "rgba(128,128,128,0.75)"; c.lineWidth = 1; c.setLineDash([4, 3]); c.beginPath(); c.moveTo(p, g.P.t); c.lineTo(p, g.P.t + g.ph); c.stroke(); c.setLineDash([]);
+    const x = xAt(p);
+    const rows = g.lines.map((l) => {
+      const i = nearest(l.x, x), v = l.y[i];
+      if (Number.isFinite(v)) { c.fillStyle = l.color; c.strokeStyle = g.panel; c.lineWidth = 2; c.beginPath(); c.arc(g.X(l.x[i]), g.Y(v), 4.5, 0, Math.PI * 2); c.stroke(); c.fill(); }
+      return `<div><i style="background:${l.color}"></i>${esc(l.label)}: <b>${fmtN(v)}</b>${l.t0 !== undefined ? ` <small>${fmtT(l.t0 + l.x[i])}</small>` : ""}</div>`;
+    });
+    if (d0 !== null) { selb.hidden = false; selb.style.left = Math.min(d0, p) + 6 + "px"; selb.style.width = Math.abs(p - d0) + "px"; }
+    const head = g.o.hour ? Math.round(x) + " h" : g.o.rel ? "Día " + (x / DAYMS).toFixed(1) : fmtT(x);
+    tip.innerHTML = `<small>${head}</small>` + rows.join("");
+    tip.hidden = false; tip.style.left = (p > g.W / 2 ? p - tip.offsetWidth - 6 : p + 18) + "px";
+  };
+  cv.onmouseup = (e) => { const p = px(e); selb.hidden = true; if (d0 !== null && Math.abs(p - d0) > 8) onZoom([xAt(Math.min(d0, p)), xAt(Math.max(d0, p))]); d0 = null; };
+  cv.onmouseleave = () => { tip.hidden = true; selb.hidden = true; d0 = null; redraw(); };
+  cv.ondblclick = () => onZoom(null);
+}
+const chartInto = (id, lines, o, z) => { const cv = $("#" + id); drawChart(cv, lines, o); bind(cv, z || (() => {})); };
+const cw = (id) => `<div class="cw"><canvas id="${id}"></canvas><div class="tip" hidden></div><div class="sel" hidden></div></div>`;
+const expBar = () => `<span class="exp"><select data-fmt title="Formato de imagen"><option value="png" ${S.fmt === "png" ? "selected" : ""}>PNG</option><option value="jpeg" ${S.fmt === "jpeg" ? "selected" : ""}>JPEG</option></select><button data-exp="dl">Descargar gráfico</button><button data-exp="cp">Copiar al portapapeles</button></span>`;
+
+/* ---------- exportar gráfico ---------- */
+async function exportChart(mode) {
+  const cvs = [...document.querySelectorAll("#main .cw canvas")];
+  if (!cvs.length) return;
+  const out = document.createElement("canvas"); out.width = Math.max(...cvs.map((x) => x.width)); out.height = cvs.reduce((a, x) => a + x.height, 0);
+  const c = out.getContext("2d");
+  c.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--panel").trim() || "#fff";
+  c.fillRect(0, 0, out.width, out.height);
+  let oy = 0; for (const x of cvs) { c.drawImage(x, 0, oy); oy += x.height; }
+  const jpeg = S.fmt === "jpeg", toBlob = (type) => new Promise((r) => out.toBlob(r, type, 0.92));
+  const name = `grafico-${new Date().toISOString().slice(0, 10)}.${jpeg ? "jpg" : "png"}`;
+  try {
+    if (mode === "cp") {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": await toBlob("image/png") })]);
+      toast("Gráfico copiado al portapapeles.");
+    } else {
+      const blob = await toBlob(jpeg ? "image/jpeg" : "image/png");
+      const dl = window.claude && (await window.claude.use("downloads"));
+      if (dl) { await dl.save({ filename: name, data: blob }); toast("Gráfico guardado."); }
+      else { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+    }
+  } catch (e) {
+    toast(e && e.code === "declined" ? "Descarga cancelada." : mode === "cp" ? "El navegador no permitió copiar. Usa “Descargar gráfico”." : "No se pudo guardar el gráfico.");
+  }
+}
+
+/* ---------- barra lateral ---------- */
+function renderSide() {
+  const files = S.files.map((f) => `<div class="file"><div><b>${esc(f.name)}</b><small>${esc(origin(f))} · ${f.d.time.length} filas · ${dstr(f.d.time[0])} → ${dstr(f.d.time[f.d.time.length - 1])}</small></div><button class="x" data-act="rm" data-id="${f.id}" title="Quitar">✕</button></div>`).join("");
+  $("#side").innerHTML = `<label class="drop">Arrastra tus CSV aquí<br><span>o haz clic para elegirlos</span><input type="file" id="fi" multiple accept=".csv,.tsv,.txt" hidden></label>${S.msgs.map((m) => `<p class="warn">${esc(m)}</p>`).join("")}${files}${S.files.length ? `<input id="q" placeholder="Buscar serie…" value="${esc(S.q)}"><div id="slist"></div>` : ""}`;
+  seriesList();
+}
+function seriesList() {
+  if (!$("#slist")) return;
+  const q = S.q.toLowerCase();
+  $("#slist").innerHTML = S.files.map((f) => {
+    const items = f.d.series.filter((s) => s.label.toLowerCase().includes(q)).map((s) => `<label class="si"><input type="checkbox" data-s="${f.id}:${s.id}" ${S.sel.some((e) => e.fid === f.id && e.sid === s.id) ? "checked" : ""}> ${esc(s.label)}</label>`).join("");
+    return items ? `<details open><summary>${esc(origin(f))} <small>${f.d.series.length} series</small></summary>${items}</details>` : "";
+  }).join("");
+}
+
+/* ---------- vista Explorar ---------- */
+const fmtDur = (ms) => { if (ms <= 0) return "1 muestra"; const m = Math.round(ms / 60000); if (m < 60) return m + " min"; const h = Math.floor(m / 60); if (h < 48) return h + " h" + (m % 60 ? " " + (m % 60) + " min" : ""); return Math.round(h / 24) + " d"; };
+const hlFor = (g) => { const h = S.hl; if (!h) return null; const x = g.find((q) => q.e.fid === h.fid && q.e.sid === h.sid); return { start: h.start, end: h.end, peak: x ? { x: h.peakAt, y: h.peak, color: x.color } : null }; };
+const labelsFor = (g) => { const cnt = {}; g.forEach((x) => { const k = origin(x.f); cnt[k] = (cnt[k] || 0) + 1; }); return g.map((x) => (cnt[origin(x.f)] > 1 ? `${origin(x.f)} (${x.f.name})` : origin(x.f))); };
+
+/** Alertas del contador de un gráfico: se listan justo debajo de él. */
+function alertsHtml(g, cvId) {
+  const r = ruleFor(keyOf(g[0].s), S.rules);
+  if (!r || r.dir === "none" || r.relation) return `<p class="muted nr">Sin umbral para este contador${r ? " (" + esc(r.ideal) + ")" : ""}: no genera alertas.</p>`;
+  const key = keyOf(g[0].s);
+  const all = g.flatMap((x) => findAlerts(x.f.d.time, x.s.values, r, x.f.d.quality.medianStepMs * 12 || Infinity).map((a) => ({ f: x.f, s: x.s, r, a, cv: cvId })));
+  if (!all.length) return `<p class="ok nr">✓ Sin alertas: ${esc(r.name)} se mantuvo dentro del rango ideal (${esc(r.ideal)}).</p>`;
+  const nC = all.filter((x) => x.a.severity === "critical").length, nW = all.length - nC;
+  const rows = all.filter((x) => S.sev === "all" || x.a.severity === S.sev);
+  rows.sort(S.sort === "sev" ? (p, q) => (q.a.severity === "critical") - (p.a.severity === "critical") || p.a.start - q.a.start : (p, q) => p.a.start - q.a.start);
+  const lim = S.lim[key] || 10, shown = rows.slice(0, lim), base = S.rows.length;
+  S.rows.push(...shown);
+  const o = (v, t, cur) => `<option value="${v}" ${cur === v ? "selected" : ""}>${t}</option>`;
+  const multiSrv = new Set(shown.map((x) => origin(x.f))).size > 1;
+  const prob = (sev) => `${esc(r.name)} ${r.dir === "lt" ? "&gt;" : "&lt;"} ${sev === "critical" ? r.crit : r.warn}`;
+  const head = `<div class="ah"><b>⚠ Alertas detectadas</b><small>(${all.length})</small><span class="b crit">${nC} Critical</span><span class="b warn">${nW} Warning</span><span class="exp"><select data-al="sev">${o("all", "Todas", S.sev)}${o("critical", "Critical", S.sev)}${o("warning", "Warning", S.sev)}</select><select data-al="sort">${o("date", "Por fecha", S.sort)}${o("sev", "Críticas primero", S.sort)}</select></span></div>`;
+  const table = shown.length ? `<table class="al"><tr><th>Fecha / hora</th><th>Severidad</th>${multiSrv ? "<th>Servidor</th>" : ""}<th>Problema</th><th class="n">Valor pico</th><th class="n">Duración</th><th>Acción</th></tr>${shown.map((x, i) => `<tr><td>${fmtT(x.a.start)}</td><td><span class="b ${x.a.severity === "critical" ? "crit" : "warn"}">${x.a.severity === "critical" ? "CRITICAL" : "WARNING"}</span></td>${multiSrv ? `<td>${esc(origin(x.f))}</td>` : ""}<td class="p">${prob(x.a.severity)}</td><td class="n">${fmtN(x.a.peak)}</td><td class="n">${fmtDur(x.a.end - x.a.start)}</td><td><button class="go" data-act="goto" data-i="${base + i}">Ver en gráfico</button></td></tr>`).join("")}</table>${rows.length > shown.length ? `<button class="more" data-act="more" data-k="${esc(key)}">Mostrar más (${rows.length - shown.length} restantes)</button>` : ""}` : `<p class="muted nr">Ninguna alerta coincide con el filtro.</p>`;
+  return head + table;
+}
+
+function renderExplore() {
+  const m = $("#main");
+  if (!S.files.length) { m.innerHTML = `<div class="empty">Carga uno o varios CSV para comenzar.<br>Cada archivo se interpreta solo: columna de fecha, series numéricas y etiquetas.</div>`; return; }
+  const sel = S.sel.map((e, i) => ({ e, s: SER(e), f: F(e.fid), color: COLORS[i % COLORS.length] })).filter((x) => x.s);
+  if (!sel.length) { m.innerHTML = `<div class="empty">Marca uno o más contadores en el panel izquierdo para ver su gráfico y sus alertas.</div>`; return; }
+  const groups = new Map();
+  sel.forEach((x) => { const k = keyOf(x.s); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); });
+  const panels = [...groups.values()];
+  S.rows = [];
+  const body = panels.map((g, i) => cw("cv" + i) + alertsHtml(g, "cv" + i)).join("");
+  m.innerHTML = `<div class="bar"><button data-act="rz">Restablecer zoom</button>${S.hl ? `<button data-act="hl-clear">Quitar resaltado</button>` : ""}${expBar()}<small>Un gráfico por contador; los servidores del mismo contador se superponen · arrastra para acercar · doble clic para volver</small></div>${body}
+  <table><tr><th>Serie</th><th>Servidor</th><th>Mín</th><th>Prom</th><th>P95</th><th>Máx</th><th>Desv</th><th>Sin dato</th><th>% Warning</th><th>% Critical</th></tr>${sel.map(({ s, f, color }) => {
+    const r = ruleFor(keyOf(s), S.rules), cp = r && r.dir !== "none" ? compliance(s.values, r) : null;
+    return `<tr><td><i style="background:${color}"></i>${esc(s.label)}</td><td>${esc(origin(f))}</td><td>${fmtN(s.min)}</td><td>${fmtN(s.mean)}</td><td>${fmtN(s.p95)}</td><td>${fmtN(s.max)}</td><td>${fmtN(s.std)}</td><td>${s.missing}</td><td>${cp ? cp.warningPct.toFixed(1) + " %" : "–"}</td><td>${cp ? cp.criticalPct.toFixed(1) + " %" : "–"}</td></tr>`;
+  }).join("")}</table>`;
+  panels.forEach((g, i) => {
+    const r = ruleFor(keyOf(g[0].s), S.rules), L = labelsFor(g);
+    chartInto("cv" + i, g.map(({ s, f, color }, k) => ({ x: f.d.time, y: s.values, color, unit: s.unit, label: L[k] })), { h: panels.length > 1 ? 250 : 300, xr: S.xr, zones: zonesFor([keyOf(g[0].s)]), hl: hlFor(g), title: g[0].s.label, sub: r && r.dir !== "none" && !r.relation ? "Valor ideal: " + r.ideal : "" }, (z) => { S.xr = z; renderExplore(); });
+  });
+}
+
+/* ---------- vista Comparar ---------- */
+function cmpInit() {
+  const c = S.cmp;
+  if (c.a && F(c.a.fid) && F(c.b.fid)) return;
+  const f1 = S.files[0], f2 = S.files[1] || f1, rg = (f) => [dstr(f.d.time[0]), dstr(f.d.time[f.d.time.length - 1])];
+  if (f1 === f2) { const [s, e] = rg(f1), mid = dstr((dms(s) + dms(e)) / 2); c.a = { fid: f1.id, from: s, to: mid }; c.b = { fid: f1.id, from: dstr(dms(mid) + DAYMS), to: e }; }
+  else { c.a = { fid: f1.id, from: rg(f1)[0], to: rg(f1)[1] }; c.b = { fid: f2.id, from: rg(f2)[0], to: rg(f2)[1] }; }
+  c.key = ""; c.mode = "overlay";
+}
+function renderCompare() {
+  const m = $("#main");
+  if (!S.files.length) { m.innerHTML = `<div class="empty">Carga al menos un CSV para comparar periodos.</div>`; return; }
+  cmpInit();
+  const c = S.cmp, sl = (p) => sliceDataset(F(p.fid).d, dms(p.from), dms(p.to) + DAYMS);
+  const A = sl(c.a), B = sl(c.b), ka = new Set(A.series.map(keyOf)), common = B.series.filter((s) => ka.has(keyOf(s)));
+  if (!common.some((s) => keyOf(s) === c.key)) c.key = common[0] ? keyOf(common[0]) : "";
+  const fopt = (id) => S.files.map((f) => `<option value="${f.id}" ${f.id === id ? "selected" : ""}>${esc(f.name)}</option>`).join("");
+  const side = (n, p) => `<div class="box"><h3>Periodo ${n.toUpperCase()}</h3><select data-c="${n}.fid">${fopt(p.fid)}</select><div class="row"><input type="date" data-c="${n}.from" value="${p.from}"><input type="date" data-c="${n}.to" value="${p.to}"></div></div>`;
+  const head = `<div class="grid2">${side("a", c.a)}${side("b", c.b)}</div><div class="bar"><label>Métrica <select data-c="key">${common.map((s) => `<option value="${esc(keyOf(s))}" ${keyOf(s) === c.key ? "selected" : ""}>${esc(s.label)}</option>`).join("")}</select></label><label>Eje X <select data-c="mode"><option value="overlay" ${c.mode === "overlay" ? "selected" : ""}>Superpuesto (días desde el inicio de cada periodo)</option><option value="calendar" ${c.mode === "calendar" ? "selected" : ""}>Calendario real</option></select></label></div>`;
+  const cmp = c.key && A.time.length && B.time.length ? comparePeriods(A, B, c.key) : null;
+  if (!cmp) { m.innerHTML = head + `<div class="empty">No hay datos comparables: revisa las fechas o que ambos periodos compartan al menos una métrica.</div>`; return; }
+  const sa = A.series.find((s) => keyOf(s) === c.key), sb = B.series.find((s) => keyOf(s) === c.key), unit = sa.unit, zr = zonesFor([c.key]);
+  const row = (n, k) => { const d = cmp.deltaPct[k]; return `<tr><td>${n}</td><td>${fmtN(cmp.prev[k])}</td><td>${fmtN(cmp.curr[k])}</td><td class="${d > 0 ? "up" : "dn"}">${Number.isFinite(d) ? (d > 0 ? "+" : "") + d.toFixed(1) + " %" : "–"}</td></tr>`; };
+  m.innerHTML = head + `<table><tr><th>${esc(sa.label)} ${esc(unit)}</th><th>A</th><th>B</th><th>Cambio B vs A</th></tr>${row("Promedio", "mean")}${row("P95", "p95")}${row("Máximo", "max")}</table>
+  <h3 class="t">Superposición de periodos ${expBar()}</h3>${cw("cv0")}`;
+  const rel = c.mode === "overlay";
+  const mk = (n, slc, s, p, color) => { const t0 = dms(p.from); return { x: rel ? Float64Array.from(slc.time, (t) => t - t0) : slc.time, y: s.values, color, unit: s.unit, t0: rel ? t0 : undefined, label: `Periodo ${n} · ${origin(F(p.fid))} (${p.from} → ${p.to})` }; };
+  const spanA = dms(c.a.to) + DAYMS - dms(c.a.from), spanB = dms(c.b.to) + DAYMS - dms(c.b.from);
+  const xr = rel ? [0, Math.max(spanA, spanB)] : [Math.min(dms(c.a.from), dms(c.b.from)), Math.max(dms(c.a.to), dms(c.b.to)) + DAYMS];
+  chartInto("cv0", [mk("A", A, sa, c.a, COLORS[0]), mk("B", B, sb, c.b, COLORS[1])], { rel, xr, zones: zr, title: sa.label, sub: zr ? "Valor ideal: " + zr.ideal : "" });
+}
+
+/* ---------- vista Umbrales ---------- */
+function renderThresholds() {
+  const m = $("#main"), R = S.rules;
+  const dirSel = (r) => `<select data-r="${r.id}.dir">${[["lt", "Menor es mejor (<)"], ["gt", "Mayor es mejor (>)"], ["none", "Sin umbral (variable)"]].map(([v, t]) => `<option value="${v}" ${r.dir === v ? "selected" : ""}>${t}</option>`).join("")}</select>`;
+  const prof = (r) => r.profile ? `<select data-r="${r.id}.profile">${Object.keys(PROFILES).map((p) => `<option ${r.profile === p ? "selected" : ""}>${p}</option>`).join("")}</select>` : "–";
+  const num = (r, f) => r.relation ? "–" : `<input type="number" step="any" data-r="${r.id}.${f}" value="${r[f]}" ${r.dir === "none" ? "disabled" : ""} style="width:84px">`;
+  const rows = R.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.ideal)}</td><td>${r.relation ? "Total ≤ Target" : dirSel(r)}</td><td>${num(r, "warn")}</td><td>${num(r, "crit")}</td><td>${prof(r)}</td></tr>`).join("");
+  const sum = [];
+  for (const f of S.files) {
+    for (const r of R) {
+      if (r.relation) {
+        const tot = f.d.series.find((s) => /Total Server Memory/i.test(keyOf(s))), tgt = f.d.series.find((s) => /Target Server Memory/i.test(keyOf(s)));
+        if (tot && tgt) sum.push(`<tr><td>${esc(origin(f))}</td><td>${esc(r.name)}</td><td>Total &gt; Target</td><td>${relationPct(tot.values, tgt.values).toFixed(1)} %</td><td>–</td></tr>`);
+      } else if (r.dir !== "none") for (const s of f.d.series) if (ruleFor(keyOf(s), R) === r) { const cp = compliance(s.values, r); sum.push(`<tr><td>${esc(origin(f))}</td><td>${esc(r.name)}</td><td>${esc(s.label)}</td><td>${cp.warningPct.toFixed(1)} %</td><td>${cp.criticalPct.toFixed(1)} %</td></tr>`); }
+    }
+  }
+  m.innerHTML = `<p class="muted" style="margin-top:0">Valores ideales según la tabla de referencia. La zona Warning empieza en el límite ideal y la zona Critical en el margen que definas: puedes modificar ambos. Los cambios se guardan en este navegador.</p>
+  <table><tr><th>Contador</th><th>Valor ideal</th><th>Criterio</th><th>Warning desde</th><th>Critical desde</th><th>Perfil</th></tr>${rows}</table>
+  <div class="bar"><button data-act="rules-reset">Restablecer valores de la tabla</button></div>
+  <h3 class="t">Cumplimiento por archivo</h3>${sum.length ? `<table><tr><th>Servidor</th><th>Contador</th><th>Serie</th><th>% Warning</th><th>% Critical</th></tr>${sum.join("")}</table>` : `<div class="empty">Carga archivos para ver qué porcentaje del tiempo cada contador estuvo en Warning o Critical.</div>`}`;
+}
+
+/* ---------- eventos ---------- */
+const syncTabs = () => document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === S.tab));
+const renderMain = () => (S.tab === "explore" ? renderExplore() : S.tab === "compare" ? renderCompare() : renderThresholds());
+const render = () => { renderSide(); syncTabs(); renderMain(); };
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-act],[data-tab],[data-exp]");
+  if (!t) return;
+  if (t.dataset.tab) { S.tab = t.dataset.tab; syncTabs(); renderMain(); return; }
+  if (t.dataset.exp) { exportChart(t.dataset.exp); return; }
+  const a = t.dataset.act;
+  if (a === "rm") { const id = +t.dataset.id; S.files = S.files.filter((f) => f.id !== id); S.sel = S.sel.filter((x) => x.fid !== id); if (S.hl && S.hl.fid === id) S.hl = null; S.cmp = {}; render(); }
+  else if (a === "goto") {
+    const x = S.rows[+t.dataset.i];
+    if (!x) return;
+    if (!S.sel.some((e) => e.fid === x.f.id && e.sid === x.s.id)) { if (S.sel.length >= COLORS.length) S.sel.shift(); S.sel.push({ fid: x.f.id, sid: x.s.id }); seriesList(); }
+    const pad = Math.max((x.a.end - x.a.start) * 0.5, 12 * 3600000, 20 * (x.f.d.quality.medianStepMs || 0));
+    S.xr = [x.a.start - pad, x.a.end + pad]; S.hl = { fid: x.f.id, sid: x.s.id, start: x.a.start, end: x.a.end, peak: x.a.peak, peakAt: x.a.peakAt };
+    renderExplore(); const first = $("#" + x.cv); if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
+  } else if (a === "more") { S.lim[t.dataset.k] = (S.lim[t.dataset.k] || 10) + 20; renderExplore(); }
+  else if (a === "hl-clear") { S.hl = null; renderExplore(); }
+  else if (a === "rz") { S.xr = null; renderExplore(); }
+  else if (a === "rules-reset") { S.rules = cloneRules(); saveRules(); renderThresholds(); }
+});
+document.addEventListener("change", (e) => {
+  const t = e.target;
+  if (t.id === "fi") addFiles([...t.files]);
+  else if (t.dataset.fmt !== undefined) { S.fmt = t.value; document.querySelectorAll("[data-fmt]").forEach((x) => (x.value = t.value)); }
+  else if (t.dataset.s) {
+    const [fid, sid] = t.dataset.s.split(":"), f = +fid, i = S.sel.findIndex((x) => x.fid === f && x.sid === sid);
+    if (i >= 0) S.sel.splice(i, 1); else if (S.sel.length < COLORS.length) S.sel.push({ fid: f, sid }); else { t.checked = false; return; }
+    renderExplore();
+  } else if (t.dataset.al) { S[t.dataset.al] = t.value; S.lim = {}; renderExplore(); }
+  else if (t.dataset.r) {
+    const [id, field] = t.dataset.r.split("."), r = S.rules.find((x) => x.id === id);
+    if (field === "dir") r.dir = t.value;
+    else if (field === "profile") { r.profile = t.value; Object.assign(r, PROFILES[t.value]); }
+    else r[field] = +t.value;
+    saveRules(); renderThresholds();
+  } else if (t.dataset.c) {
+    const p = t.dataset.c;
+    if (p === "key") S.cmp.key = t.value;
+    else if (p === "mode") S.cmp.mode = t.value;
+    else {
+      const [side, field] = p.split(".");
+      if (field === "fid") { const f = F(t.value); S.cmp[side] = { fid: f.id, from: dstr(f.d.time[0]), to: dstr(f.d.time[f.d.time.length - 1]) }; }
+      else if (t.value) S.cmp[side][field] = t.value;
+    }
+    renderCompare();
+  }
+});
+document.addEventListener("input", (e) => { if (e.target.id === "q") { S.q = e.target.value; seriesList(); } });
+addEventListener("dragover", (e) => e.preventDefault());
+addEventListener("drop", (e) => { e.preventDefault(); if (e.dataTransfer && e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]); });
+addEventListener("resize", () => { if (S.files.length && S.tab !== "thresholds") renderMain(); });
+document.querySelectorAll("img.logo").forEach((i) => (i.src = LOGO));
+render();
+
+</script>
+</body>
+</html>
