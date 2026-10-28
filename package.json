@@ -1,7 +1,7 @@
 {
   "name": "analizador-csv",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.8.0",
   "type": "module",
   "scripts": {
     "build": "node --experimental-strip-types --no-warnings scripts/build.mjs",

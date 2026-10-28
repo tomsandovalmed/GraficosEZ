@@ -8,7 +8,15 @@ npm test        # tests del núcleo
 ```
 
 - `src/core/` núcleo en TypeScript: parser genérico (`parser/`) y comparación de periodos (`compare.ts`).
-- `src/ui/` interfaz (vanilla JS + canvas) y plantilla HTML.
+- `src/ui/` interfaz (vanilla JS + canvas, responsiva) y plantilla HTML.
+- `src/assets/` logo de la herramienta (variantes clara y oscura), favicon y logo del desarrollador (pie de página).
 - `scripts/build.mjs` une todo en `dist/index.html`. Ábrelo con doble clic o súbelo a cualquier hosting estático.
 
 Desarrollado por Tomas Sandoval.
+
+## Perfiles de umbrales
+
+Los umbrales son datos, no código: cada empresa o cliente tiene un perfil (lista de contadores con patrón, criterio, Warning y Critical).
+En la pestaña **Umbrales** puedes crear, duplicar, editar, **descargar** (`.json`) y **cargar** perfiles; se guardan en el navegador.
+Vienen de fábrica `SII` y `TGR` (según sus tablas de referencia). La carpeta `perfiles/` trae ambos como archivos `.json` y la plantilla estándar (`plantilla.json`); la pestaña **Instrucciones** incluye la plantilla y un prompt para que una IA convierta la tabla de un cliente nuevo en un perfil.
+Formato del archivo: ver `serializeProfiles` en `src/core/thresholds.ts`.

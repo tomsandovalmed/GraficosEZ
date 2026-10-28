@@ -1,0 +1,94 @@
+{
+  "format": "analizador-csv.umbrales",
+  "version": 1,
+  "name": "SII",
+  "description": "Valores ideales de la tabla de referencia de SII. El inicio de la zona Critical es un margen editable.",
+  "draft": false,
+  "updated": "2026-10-28",
+  "rules": [
+    {
+      "id": "pages",
+      "name": "Memory\\Pages/sec",
+      "ideal": "< 20",
+      "pat": "Memory\\Pages/sec",
+      "dir": "lt",
+      "warn": 20,
+      "crit": 40
+    },
+    {
+      "id": "cpu",
+      "name": "% Processor Time",
+      "ideal": "< 80 %",
+      "pat": "Processor(_Total)\\% Processor Time",
+      "dir": "lt",
+      "warn": 80,
+      "crit": 90
+    },
+    {
+      "id": "bchr",
+      "name": "Buffer cache hit ratio",
+      "ideal": "> 95 % (OLTP) · > 80 % (OLAP)",
+      "pat": "Buffer cache hit ratio",
+      "dir": "gt",
+      "warn": 95,
+      "crit": 90,
+      "variants": {
+        "OLTP": {
+          "warn": 95,
+          "crit": 90
+        },
+        "OLAP": {
+          "warn": 80,
+          "crit": 70
+        }
+      },
+      "variant": "OLTP"
+    },
+    {
+      "id": "tx",
+      "name": "Transactions/sec",
+      "ideal": "Variable",
+      "pat": "Transactions/sec",
+      "dir": "none",
+      "warn": 0,
+      "crit": 0
+    },
+    {
+      "id": "sess",
+      "name": "Cantidad de sesiones por día (User Connections)",
+      "ideal": "Variable",
+      "pat": "User Connections",
+      "dir": "none",
+      "warn": 0,
+      "crit": 0
+    },
+    {
+      "id": "comp",
+      "name": "SQL Compilations/sec",
+      "ideal": "<= 100",
+      "pat": "SQL Compilations/sec",
+      "dir": "lt",
+      "warn": 100,
+      "crit": 200
+    },
+    {
+      "id": "mem",
+      "name": "Target vs Total Memory",
+      "ideal": "Total igual o menor que Target",
+      "pat": "Total Server Memory",
+      "dir": "none",
+      "warn": 0,
+      "crit": 0,
+      "relation": true
+    },
+    {
+      "id": "locks",
+      "name": "Locks: Lock Requests/sec",
+      "ideal": "< 1000",
+      "pat": "Lock Requests/sec",
+      "dir": "lt",
+      "warn": 1000,
+      "crit": 2000
+    }
+  ]
+}

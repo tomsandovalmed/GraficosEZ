@@ -8,19 +8,29 @@ const dstr = (t) => new Date(t).toISOString().slice(0, 10);
 const dms = (s) => Date.parse(s + "T00:00:00Z");
 const fmtN = (n) => { if (!Number.isFinite(n)) return "–"; const a = Math.abs(n); return a >= 1e6 ? (n / 1e6).toFixed(2) + "M" : a >= 1e4 ? (n / 1e3).toFixed(1) + "k" : a >= 100 ? n.toFixed(0) : n.toFixed(2); };
 
-/* ---------- umbrales (editables, guardados en el navegador) ---------- */
-const RKEY = "analizador-csv.umbrales.v1";
-const cloneRules = () => JSON.parse(JSON.stringify(DEFAULT_RULES));
-function loadRules() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(RKEY));
-    if (Array.isArray(saved)) return cloneRules().map((r) => Object.assign(r, saved.find((x) => x.id === r.id) || {}, { pat: r.pat, name: r.name, ideal: r.ideal, relation: r.relation }));
-  } catch (e) { /* sin almacenamiento: se usan los valores de la tabla */ }
-  return cloneRules();
+/* ---------- perfiles de umbrales (guardados en el navegador; exportables a archivo) ---------- */
+const PKEY = "analizador-csv.perfiles.v2";
+const clone = (x) => JSON.parse(JSON.stringify(x));
+const uid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+const slug = (t) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "perfil";
+function loadProfiles() {
+  let st = null;
+  try { const x = JSON.parse(localStorage.getItem(PKEY)); if (x && Array.isArray(x.list) && x.list.length) st = x; } catch (e) { /* sin almacenamiento: perfiles de fábrica */ }
+  if (!st) return { active: "sii", list: BUILTIN_PROFILES.map((p) => ({ ...clone(p), base: p.id })) };
+  for (const b of BUILTIN_PROFILES) { // los perfiles de fábrica que no fueron editados se actualizan solos
+    const p = st.list.find((x) => x.base === b.id);
+    if (p && (p.rev || 1) < b.rev && !p.edited && !p.dirty) Object.assign(p, clone(b), { id: p.id, base: b.id, dirty: false, edited: false });
+  }
+  return st;
 }
-const saveRules = () => { try { localStorage.setItem(RKEY, JSON.stringify(S.rules)); } catch (e) { /* ignorar */ } };
+const activeOf = (pf) => pf.list.find((p) => p.id === pf.active) || pf.list[0];
+const touch = () => { const p = activeOf(S.pf); p.dirty = true; p.edited = true; saveProfiles(); };
+const saveProfiles = () => { try { localStorage.setItem(PKEY, JSON.stringify(S.pf)); } catch (e) { /* ignorar */ } };
+function setActive(id) { S.pf.active = id; S.rules = activeOf(S.pf).rules; saveProfiles(); }
+const uniqueName = (n) => { let k = n, i = 2; while (S.pf.list.some((p) => p.name === k)) k = `${n} (${i++})`; return k; };
 
-const S = { files: [], sel: [], tab: "explore", xr: null, hl: null, nid: 1, q: "", msgs: [], cmp: {}, fmt: "png", rules: loadRules(), sev: "all", sort: "date", lim: {}, rows: [] };
+const S = { files: [], sel: [], tab: "explore", xr: null, hl: null, nid: 1, q: "", msgs: [], cmp: {}, fmt: "png", pf: loadProfiles(), rules: [], sev: "all", sort: "date", lim: {}, rows: [] };
+S.rules = activeOf(S.pf).rules;
 const F = (id) => S.files.find((f) => f.id === +id);
 const SER = (e) => F(e.fid)?.d.series.find((s) => s.id === e.sid);
 /** Servidor (e instancia SQL con nombre) al que pertenece un archivo. */
@@ -45,6 +55,7 @@ async function addFiles(list) {
     } catch (e) { S.msgs.push(`${f.name}: no se pudo leer (${e.message})`); }
   }
   S.cmp = {}; render();
+  if (S.files.length && matchMedia("(max-width:820px)").matches) document.body.classList.remove("side-open");
 }
 
 /* ---------- gráfico canvas ---------- */
@@ -126,7 +137,7 @@ function drawChart(cv, lines, o = {}) {
       const ya = yv(a), yb = yv(b), top = Math.min(ya, yb), h = Math.abs(ya - yb);
       if (h < 1) return;
       c.fillStyle = col; c.fillRect(P.l, top, pw, h);
-      if (h >= 17) { c.fillStyle = tc; c.font = `600 11px ${FONT}`; c.textAlign = "right"; c.fillText(txt, W - P.r - 8, top + 14); }
+      if (h >= 17) { c.font = `600 11px ${FONT}`; c.textAlign = "right"; c.lineWidth = 3; c.strokeStyle = panel; c.strokeText(txt, W - P.r - 8, top + 14); c.fillStyle = tc; c.fillText(txt, W - P.r - 8, top + 14); }
     };
     const op = z.dir === "lt" ? ">" : "<";
     band(z.warn, z.crit, WARN, `Warning Zone ${op} ${z.warn}`, V("--warn-ink"));
@@ -180,8 +191,8 @@ function bind(cv, onZoom) {
   const px = (e) => e.clientX - cv.getBoundingClientRect().left;
   const xAt = (p) => { const g = cv._g; return g.x0 + ((p - g.P.l) / g.pw) * (g.x1 - g.x0); };
   const redraw = () => { const g = cv._g, c = cv.getContext("2d"); c.setTransform(1, 0, 0, 1, 0, 0); c.putImageData(cv._img, 0, 0); c.setTransform(g.dpr, 0, 0, g.dpr, 0, 0); return c; };
-  cv.onmousedown = (e) => { d0 = px(e); };
-  cv.onmousemove = (e) => {
+  cv.onpointerdown = (e) => { d0 = px(e); };
+  cv.onpointermove = (e) => {
     const g = cv._g, p = px(e), c = redraw();
     if (p < g.P.l || p > g.W - g.P.r) { tip.hidden = true; return; }
     // cruz de lectura y puntos sobre cada línea
@@ -197,13 +208,21 @@ function bind(cv, onZoom) {
     tip.innerHTML = `<small>${head}</small>` + rows.join("");
     tip.hidden = false; tip.style.left = (p > g.W / 2 ? p - tip.offsetWidth - 6 : p + 18) + "px";
   };
-  cv.onmouseup = (e) => { const p = px(e); selb.hidden = true; if (d0 !== null && Math.abs(p - d0) > 8) onZoom([xAt(Math.min(d0, p)), xAt(Math.max(d0, p))]); d0 = null; };
-  cv.onmouseleave = () => { tip.hidden = true; selb.hidden = true; d0 = null; redraw(); };
+  cv.onpointerup = (e) => { const p = px(e); selb.hidden = true; if (d0 !== null && Math.abs(p - d0) > 8) onZoom([xAt(Math.min(d0, p)), xAt(Math.max(d0, p))]); d0 = null; };
+  cv.onpointerleave = () => { tip.hidden = true; selb.hidden = true; d0 = null; redraw(); };
+  cv.onpointercancel = cv.onpointerleave;
   cv.ondblclick = () => onZoom(null);
 }
 const chartInto = (id, lines, o, z) => { const cv = $("#" + id); drawChart(cv, lines, o); bind(cv, z || (() => {})); };
 const cw = (id) => `<div class="cw"><canvas id="${id}"></canvas><div class="tip" hidden></div><div class="sel" hidden></div></div>`;
 const expBar = () => `<span class="exp"><select data-fmt title="Formato de imagen"><option value="png" ${S.fmt === "png" ? "selected" : ""}>PNG</option><option value="jpeg" ${S.fmt === "jpeg" ? "selected" : ""}>JPEG</option></select><button data-exp="dl">Descargar gráfico</button><button data-exp="cp">Copiar al portapapeles</button></span>`;
+
+/* ---------- guardar archivos ---------- */
+async function saveBlob(blob, name) {
+  const dl = window.claude && (await window.claude.use("downloads"));
+  if (dl) { await dl.save({ filename: name, data: blob }); return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
 
 /* ---------- exportar gráfico ---------- */
 async function exportChart(mode) {
@@ -222,9 +241,7 @@ async function exportChart(mode) {
       toast("Gráfico copiado al portapapeles.");
     } else {
       const blob = await toBlob(jpeg ? "image/jpeg" : "image/png");
-      const dl = window.claude && (await window.claude.use("downloads"));
-      if (dl) { await dl.save({ filename: name, data: blob }); toast("Gráfico guardado."); }
-      else { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+      await saveBlob(blob, name); toast("Gráfico guardado.");
     }
   } catch (e) {
     toast(e && e.code === "declined" ? "Descarga cancelada." : mode === "cp" ? "El navegador no permitió copiar. Usa “Descargar gráfico”." : "No se pudo guardar el gráfico.");
@@ -254,10 +271,10 @@ const labelsFor = (g) => { const cnt = {}; g.forEach((x) => { const k = origin(x
 /** Alertas del contador de un gráfico: se listan justo debajo de él. */
 function alertsHtml(g, cvId) {
   const r = ruleFor(keyOf(g[0].s), S.rules);
-  if (!r || r.dir === "none" || r.relation) return `<p class="muted nr">Sin umbral para este contador${r ? " (" + esc(r.ideal) + ")" : ""}: no genera alertas.</p>`;
+  if (!r || r.dir === "none" || r.relation) return `<p class="muted nr">Sin umbral para este contador${r ? " (" + esc(idealOf(r)) + ")" : ""}: no genera alertas.</p>`;
   const key = keyOf(g[0].s);
   const all = g.flatMap((x) => findAlerts(x.f.d.time, x.s.values, r, x.f.d.quality.medianStepMs * 12 || Infinity).map((a) => ({ f: x.f, s: x.s, r, a, cv: cvId })));
-  if (!all.length) return `<p class="ok nr">✓ Sin alertas: ${esc(r.name)} se mantuvo dentro del rango ideal (${esc(r.ideal)}).</p>`;
+  if (!all.length) return `<p class="ok nr">✓ Sin alertas: ${esc(r.name)} se mantuvo dentro del rango ideal (${esc(idealOf(r))}).</p>`;
   const nC = all.filter((x) => x.a.severity === "critical").length, nW = all.length - nC;
   const rows = all.filter((x) => S.sev === "all" || x.a.severity === S.sev);
   rows.sort(S.sort === "sev" ? (p, q) => (q.a.severity === "critical") - (p.a.severity === "critical") || p.a.start - q.a.start : (p, q) => p.a.start - q.a.start);
@@ -267,7 +284,7 @@ function alertsHtml(g, cvId) {
   const multiSrv = new Set(shown.map((x) => origin(x.f))).size > 1;
   const prob = (sev) => `${esc(r.name)} ${r.dir === "lt" ? "&gt;" : "&lt;"} ${sev === "critical" ? r.crit : r.warn}`;
   const head = `<div class="ah"><b>⚠ Alertas detectadas</b><small>(${all.length})</small><span class="b crit">${nC} Critical</span><span class="b warn">${nW} Warning</span><span class="exp"><select data-al="sev">${o("all", "Todas", S.sev)}${o("critical", "Critical", S.sev)}${o("warning", "Warning", S.sev)}</select><select data-al="sort">${o("date", "Por fecha", S.sort)}${o("sev", "Críticas primero", S.sort)}</select></span></div>`;
-  const table = shown.length ? `<table class="al"><tr><th>Fecha / hora</th><th>Severidad</th>${multiSrv ? "<th>Servidor</th>" : ""}<th>Problema</th><th class="n">Valor pico</th><th class="n">Duración</th><th>Acción</th></tr>${shown.map((x, i) => `<tr><td>${fmtT(x.a.start)}</td><td><span class="b ${x.a.severity === "critical" ? "crit" : "warn"}">${x.a.severity === "critical" ? "CRITICAL" : "WARNING"}</span></td>${multiSrv ? `<td>${esc(origin(x.f))}</td>` : ""}<td class="p">${prob(x.a.severity)}</td><td class="n">${fmtN(x.a.peak)}</td><td class="n">${fmtDur(x.a.end - x.a.start)}</td><td><button class="go" data-act="goto" data-i="${base + i}">Ver en gráfico</button></td></tr>`).join("")}</table>${rows.length > shown.length ? `<button class="more" data-act="more" data-k="${esc(key)}">Mostrar más (${rows.length - shown.length} restantes)</button>` : ""}` : `<p class="muted nr">Ninguna alerta coincide con el filtro.</p>`;
+  const table = shown.length ? `<table class="al cards"><tr><th>Fecha / hora</th><th>Severidad</th>${multiSrv ? "<th>Servidor</th>" : ""}<th>Problema</th><th class="n">Valor pico</th><th class="n">Duración</th><th>Acción</th></tr>${shown.map((x, i) => `<tr><td>${fmtT(x.a.start)}</td><td><span class="b ${x.a.severity === "critical" ? "crit" : "warn"}">${x.a.severity === "critical" ? "CRITICAL" : "WARNING"}</span></td>${multiSrv ? `<td>${esc(origin(x.f))}</td>` : ""}<td class="p">${prob(x.a.severity)}</td><td class="n">${fmtN(x.a.peak)}</td><td class="n">${fmtDur(x.a.end - x.a.start)}</td><td><button class="go" data-act="goto" data-i="${base + i}">Ver en gráfico</button></td></tr>`).join("")}</table>${rows.length > shown.length ? `<button class="more" data-act="more" data-k="${esc(key)}">Mostrar más (${rows.length - shown.length} restantes)</button>` : ""}` : `<p class="muted nr">Ninguna alerta coincide con el filtro.</p>`;
   return head + table;
 }
 
@@ -281,14 +298,14 @@ function renderExplore() {
   const panels = [...groups.values()];
   S.rows = [];
   const body = panels.map((g, i) => cw("cv" + i) + alertsHtml(g, "cv" + i)).join("");
-  m.innerHTML = `<div class="bar"><button data-act="rz">Restablecer zoom</button>${S.hl ? `<button data-act="hl-clear">Quitar resaltado</button>` : ""}${expBar()}<small>Un gráfico por contador; los servidores del mismo contador se superponen · arrastra para acercar · doble clic para volver</small></div>${body}
-  <table><tr><th>Serie</th><th>Servidor</th><th>Mín</th><th>Prom</th><th>P95</th><th>Máx</th><th>Desv</th><th>Sin dato</th><th>% Warning</th><th>% Critical</th></tr>${sel.map(({ s, f, color }) => {
+  m.innerHTML = `<div class="bar"><button data-act="rz">Restablecer zoom</button>${S.hl ? `<button data-act="hl-clear">Quitar resaltado</button>` : ""}${expBar()}<small>Un gráfico por contador; los servidores del mismo contador se superponen · arrastra para acercar · doble clic para volver · Umbrales: ${esc(activeOf(S.pf).name)}</small></div>${body}
+  <table class="cards"><tr><th>Serie</th><th>Servidor</th><th>Mín</th><th>Prom</th><th>P95</th><th>Máx</th><th>Desv</th><th>Sin dato</th><th>% Warning</th><th>% Critical</th></tr>${sel.map(({ s, f, color }) => {
     const r = ruleFor(keyOf(s), S.rules), cp = r && r.dir !== "none" ? compliance(s.values, r) : null;
     return `<tr><td><i style="background:${color}"></i>${esc(s.label)}</td><td>${esc(origin(f))}</td><td>${fmtN(s.min)}</td><td>${fmtN(s.mean)}</td><td>${fmtN(s.p95)}</td><td>${fmtN(s.max)}</td><td>${fmtN(s.std)}</td><td>${s.missing}</td><td>${cp ? cp.warningPct.toFixed(1) + " %" : "–"}</td><td>${cp ? cp.criticalPct.toFixed(1) + " %" : "–"}</td></tr>`;
   }).join("")}</table>`;
   panels.forEach((g, i) => {
     const r = ruleFor(keyOf(g[0].s), S.rules), L = labelsFor(g);
-    chartInto("cv" + i, g.map(({ s, f, color }, k) => ({ x: f.d.time, y: s.values, color, unit: s.unit, label: L[k] })), { h: panels.length > 1 ? 250 : 300, xr: S.xr, zones: zonesFor([keyOf(g[0].s)]), hl: hlFor(g), title: g[0].s.label, sub: r && r.dir !== "none" && !r.relation ? "Valor ideal: " + r.ideal : "" }, (z) => { S.xr = z; renderExplore(); });
+    chartInto("cv" + i, g.map(({ s, f, color }, k) => ({ x: f.d.time, y: s.values, color, unit: s.unit, label: L[k] })), { h: panels.length > 1 ? 250 : 300, xr: S.xr, zones: zonesFor([keyOf(g[0].s)]), hl: hlFor(g), title: g[0].s.label, sub: r && r.dir !== "none" && !r.relation ? "Valor ideal: " + idealOf(r) : "" }, (z) => { S.xr = z; renderExplore(); });
   });
 }
 
@@ -321,40 +338,113 @@ function renderCompare() {
   const mk = (n, slc, s, p, color) => { const t0 = dms(p.from); return { x: rel ? Float64Array.from(slc.time, (t) => t - t0) : slc.time, y: s.values, color, unit: s.unit, t0: rel ? t0 : undefined, label: `Periodo ${n} · ${origin(F(p.fid))} (${p.from} → ${p.to})` }; };
   const spanA = dms(c.a.to) + DAYMS - dms(c.a.from), spanB = dms(c.b.to) + DAYMS - dms(c.b.from);
   const xr = rel ? [0, Math.max(spanA, spanB)] : [Math.min(dms(c.a.from), dms(c.b.from)), Math.max(dms(c.a.to), dms(c.b.to)) + DAYMS];
-  chartInto("cv0", [mk("A", A, sa, c.a, COLORS[0]), mk("B", B, sb, c.b, COLORS[1])], { rel, xr, zones: zr, title: sa.label, sub: zr ? "Valor ideal: " + zr.ideal : "" });
+  chartInto("cv0", [mk("A", A, sa, c.a, COLORS[0]), mk("B", B, sb, c.b, COLORS[1])], { rel, xr, zones: zr, title: sa.label, sub: zr ? "Valor ideal: " + idealOf(zr) : "" });
 }
 
 /* ---------- vista Umbrales ---------- */
 function renderThresholds() {
-  const m = $("#main"), R = S.rules;
-  const dirSel = (r) => `<select data-r="${r.id}.dir">${[["lt", "Menor es mejor (<)"], ["gt", "Mayor es mejor (>)"], ["none", "Sin umbral (variable)"]].map(([v, t]) => `<option value="${v}" ${r.dir === v ? "selected" : ""}>${t}</option>`).join("")}</select>`;
-  const prof = (r) => r.profile ? `<select data-r="${r.id}.profile">${Object.keys(PROFILES).map((p) => `<option ${r.profile === p ? "selected" : ""}>${p}</option>`).join("")}</select>` : "–";
-  const num = (r, f) => r.relation ? "–" : `<input type="number" step="any" data-r="${r.id}.${f}" value="${r[f]}" ${r.dir === "none" ? "disabled" : ""} style="width:84px">`;
-  const rows = R.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.ideal)}</td><td>${r.relation ? "Total ≤ Target" : dirSel(r)}</td><td>${num(r, "warn")}</td><td>${num(r, "crit")}</td><td>${prof(r)}</td></tr>`).join("");
+  const m = $("#main"), p = activeOf(S.pf), R = p.rules, bi = BUILTIN_PROFILES.find((x) => x.id === p.base);
+  const dirSel = (r) => `<select data-r="${r.id}.dir" title="Cuándo se activa la alerta">${[["lt", "Alerta si sube de (>)"], ["gt", "Alerta si baja de (<)"], ["none", "Solo informativo"]].map(([v, t]) => `<option value="${v}" ${r.dir === v ? "selected" : ""}>${t}</option>`).join("")}</select>`;
+  const variant = (r) => r.variants ? `<span class="muted">Perfil</span><select data-r="${r.id}.variant" title="Perfil de uso del contador">${Object.keys(r.variants).map((v) => `<option ${r.variant === v ? "selected" : ""}>${esc(v)}</option>`).join("")}</select>` : "";
+  const count = (r) => S.files.reduce((n, f) => n + f.d.series.filter((x) => ruleFor(keyOf(x), R) === r).length, 0);
+  let nIss = 0;
+  const rows = R.map((r, i) => {
+    const iss = ruleIssues(r), patIss = iss.find((t) => /patrón|expresión/.test(t)), critIss = iss.find((t) => /Critical/.test(t)), n = count(r);
+    if (iss.length) nIss++;
+    const num = (f, bad) => r.relation ? "–" : `<input type="number" step="any" data-r="${r.id}.${f}" value="${r[f]}" ${r.dir === "none" ? "disabled" : ""} class="${bad ? "bad" : ""}" ${bad ? `title="${esc(bad)}"` : ""} style="width:66px">`;
+    const chip = S.files.length ? `<span class="chip ${n ? "" : "zero"}" title="Series de los archivos cargados que usan esta regla">${n ? n + (n === 1 ? " serie" : " series") : "sin coincidencias"}</span>` : "";
+    return `<tr><td class="mv"><button class="x" data-act="rule-up" data-id="${r.id}" ${i === 0 ? "disabled" : ""} title="Subir (mayor prioridad)">▲</button><button class="x" data-act="rule-down" data-id="${r.id}" ${i === R.length - 1 ? "disabled" : ""} title="Bajar">▼</button></td>
+    <td class="nm"><input type="text" data-r="${r.id}.name" class="nm1" value="${esc(r.name)}"><input type="text" data-r="${r.id}.pat" class="pt ${patIss ? "bad" : ""}" value="${esc(r.pat)}" placeholder="Patrón: texto o /regex/" ${patIss ? `title="${esc(patIss)}"` : ""}><div class="sub">${chip}${variant(r)}</div></td>
+    <td><input type="text" data-r="${r.id}.ideal" value="${esc(r.ideal)}" placeholder="${esc(idealOf({ ...r, ideal: "" }))}" style="width:92px"></td>
+    <td class="cr">${r.relation ? `<span class="muted">Comparación (Total &gt; Target)</span>` : dirSel(r)}</td><td>${num("warn")}</td><td>${num("crit", critIss)}</td>
+    <td class="dl"><button class="x" data-act="rule-del" data-id="${r.id}" title="Eliminar contador">✕</button></td></tr>`;
+  }).join("");
+  const opts = S.pf.list.map((x) => `<option value="${esc(x.id)}" ${x.id === p.id ? "selected" : ""}>${esc(x.name)}</option>`).join("");
+  const header = S.delArm === p.id
+    ? `<div class="ph2 conf"><span>¿Eliminar el perfil <b>${esc(p.name)}</b>? No se puede deshacer.</span><button data-act="pf-del-yes" class="danger">Sí, eliminar</button><button data-act="pf-del-no">Cancelar</button></div>`
+    : `<div class="ph2"><select data-pf="active" title="Perfil activo">${opts}</select><button data-act="pf-new">＋ Nuevo</button><button data-act="pf-dl">⬇ Exportar</button><label class="btn">⬆ Importar<input type="file" id="pf-file" accept=".json,application/json" hidden></label>
+      <details class="menu"><summary class="btn" title="Más opciones">⋯</summary><div class="mi"><button data-act="pf-dup">Duplicar perfil</button>${S.pf.list.length > 1 ? `<button data-act="pf-dlall">Exportar todos los perfiles</button>` : ""}${p.base ? `<button data-act="pf-reset">Restablecer valores de origen</button>` : ""}${!p.base && S.pf.list.length > 1 ? `<button data-act="pf-del">Eliminar perfil…</button>` : ""}</div></details>
+      ${p.dirty ? `<span class="dirty" title="Exporta el perfil para guardar una copia en un archivo">● Cambios sin exportar</span>` : ""}</div>`;
+  const outdated = bi && (p.rev || 1) < bi.rev ? `<p class="warn" style="margin:-4px 2px 12px">Hay una versión más nueva de los valores de fábrica de este perfil. Tus cambios se conservan; usa ⋯ → “Restablecer valores de origen” si quieres actualizarlo.</p>` : "";
+  const meta = `<div class="pmeta"><b>${esc(p.name)}</b>${p.draft ? `<span class="b warn">BORRADOR</span>` : ""}<small style="display:inline">${esc(p.description || "Sin descripción")}</small><button class="x" data-act="meta">${S.editMeta ? "Listo" : "✎ Editar detalles"}</button></div>
+    ${p.draft ? `<p class="warn" style="margin:-4px 2px 12px">⚠ Perfil en borrador: las alertas usan valores que todavía no están confirmados.</p>` : ""}${outdated}
+    ${S.editMeta ? `<div class="box" style="margin-bottom:12px"><div class="row"><input type="text" data-p="name" value="${esc(p.name)}" placeholder="Nombre del perfil (empresa o cliente)"><label class="row" style="gap:6px;align-items:center;flex:none"><input type="checkbox" data-p="draft" ${p.draft ? "checked" : ""}> Borrador</label></div><input type="text" data-p="description" value="${esc(p.description || "")}" placeholder="Descripción: empresa, contexto, de dónde salen los valores…"></div>` : ""}`;
   const sum = [];
   for (const f of S.files) {
     for (const r of R) {
       if (r.relation) {
-        const tot = f.d.series.find((s) => /Total Server Memory/i.test(keyOf(s))), tgt = f.d.series.find((s) => /Target Server Memory/i.test(keyOf(s)));
-        if (tot && tgt) sum.push(`<tr><td>${esc(origin(f))}</td><td>${esc(r.name)}</td><td>Total &gt; Target</td><td>${relationPct(tot.values, tgt.values).toFixed(1)} %</td><td>–</td></tr>`);
-      } else if (r.dir !== "none") for (const s of f.d.series) if (ruleFor(keyOf(s), R) === r) { const cp = compliance(s.values, r); sum.push(`<tr><td>${esc(origin(f))}</td><td>${esc(r.name)}</td><td>${esc(s.label)}</td><td>${cp.warningPct.toFixed(1)} %</td><td>${cp.criticalPct.toFixed(1)} %</td></tr>`); }
+        const tot = f.d.series.find((x) => /Total Server Memory/i.test(keyOf(x))), tgt = f.d.series.find((x) => /Target Server Memory/i.test(keyOf(x)));
+        if (tot && tgt && ruleFor(keyOf(tot), R) === r) sum.push(`<tr><td>${esc(origin(f))}</td><td>${esc(r.name)}</td><td>Total &gt; Target</td><td class="n">${relationPct(tot.values, tgt.values).toFixed(1)} %</td><td class="n">–</td></tr>`);
+      } else if (r.dir !== "none") for (const x of f.d.series) if (ruleFor(keyOf(x), R) === r) { const cp = compliance(x.values, r); sum.push(`<tr><td>${esc(origin(f))}</td><td>${esc(r.name)}</td><td>${esc(x.label)}</td><td class="n">${cp.warningPct.toFixed(1)} %</td><td class="n">${cp.criticalPct.toFixed(1)} %</td></tr>`); }
     }
   }
-  m.innerHTML = `<p class="muted" style="margin-top:0">Valores ideales según la tabla de referencia. La zona Warning empieza en el límite ideal y la zona Critical en el margen que definas: puedes modificar ambos. Los cambios se guardan en este navegador.</p>
-  <table><tr><th>Contador</th><th>Valor ideal</th><th>Criterio</th><th>Warning desde</th><th>Critical desde</th><th>Perfil</th></tr>${rows}</table>
-  <div class="bar"><button data-act="rules-reset">Restablecer valores de la tabla</button></div>
-  <h3 class="t">Cumplimiento por archivo</h3>${sum.length ? `<table><tr><th>Servidor</th><th>Contador</th><th>Serie</th><th>% Warning</th><th>% Critical</th></tr>${sum.join("")}</table>` : `<div class="empty">Carga archivos para ver qué porcentaje del tiempo cada contador estuvo en Warning o Critical.</div>`}`;
+  m.innerHTML = header + meta + `<table class="rt al cards"><tr class="hd"><th></th><th>Contador y patrón</th><th>Valor ideal</th><th>Criterio</th><th>Warning</th><th>Critical</th><th></th></tr>${rows || `<tr><td colspan="7" class="muted" style="text-align:center">Este perfil no tiene contadores. Agrega el primero.</td></tr>`}</table>
+  <div class="bar"><button data-act="rule-add">＋ Agregar contador</button>${nIss ? `<span class="warn">⚠ ${nIss} ${nIss === 1 ? "regla necesita" : "reglas necesitan"} revisión (marcadas en rojo)</span>` : ""}</div>
+  <p class="muted" style="margin:0 2px 14px;font-size:12px">¿Dudas sobre criterio, Warning, Critical o patrones? Mira las <a href="#" data-tab="guide" style="color:var(--accent)">Instrucciones</a>.</p>
+  <h3 class="t">Cumplimiento por archivo</h3>${sum.length ? `<table class="al cards"><tr><th>Servidor</th><th>Contador</th><th>Serie</th><th class="n">% Warning</th><th class="n">% Critical</th></tr>${sum.join("")}</table>` : `<div class="empty">Carga archivos para ver qué porcentaje del tiempo cada contador estuvo en Warning o Critical.</div>`}`;
+}
+
+/* ---------- vista Instrucciones ---------- */
+function renderGuide() {
+  const tpl = JSON.stringify(PROFILE_TEMPLATE, null, 2), prm = aiPrompt();
+  $("#main").innerHTML = `<div class="guide">
+  <div class="box"><h3>Empezar en 3 pasos</h3><ol>
+    <li><b>Carga tus CSV</b> (arrástralos o usa el panel “Archivos y series”). Cada archivo se interpreta solo: columna de fecha, series numéricas y servidor.</li>
+    <li><b>Elige el perfil de umbrales</b> de la empresa en el selector “Umbrales” de arriba (SII, TGR…), o crea o importa uno nuevo en la pestaña Umbrales.</li>
+    <li><b>Marca contadores</b> en Explorar: cada uno muestra su gráfico con las franjas Warning y Critical y, debajo, su log de alertas con el botón “Ver en gráfico”. En Comparar superpones dos periodos o dos servidores.</li></ol></div>
+  <details class="box" open><summary>Cómo funcionan los umbrales</summary>
+    <p><b>Criterio.</b> “Alerta si sube de (&gt;)”: lo ideal es estar por debajo del límite (por ejemplo CPU &lt; 80 %). “Alerta si baja de (&lt;)”: lo ideal es estar por encima (por ejemplo cache hit ratio &gt; 95 %). “Solo informativo”: el valor es variable, no genera alertas.</p>
+    <p><b>Warning y Critical.</b> Son los números donde empiezan la zona amarilla y la roja. Con “sube de”, Critical debe ser mayor que Warning; con “baja de”, menor. Las tablas de referencia suelen dar solo el valor ideal: úsalo como Warning y define tú el margen de Critical.</p>
+    <p><b>Patrón.</b> Es el texto que debe contener el nombre del contador en el CSV, sin importar mayúsculas (por ejemplo “Lock Requests/sec”). Para casos finos acepta una expresión regular entre barras: /Processor.*Time$/. Si varias reglas coinciden con una serie, se aplica la primera de la lista.</p>
+    <p><b>Perfil de uso.</b> Algunos contadores tienen valores distintos según el tipo de servidor (por ejemplo OLTP u OLAP en el cache hit ratio): se elige en la propia fila.</p></details>
+  <details class="box" open><summary>Plantilla JSON estándar para un perfil de umbrales</summary>
+    <p>Es el formato del archivo que se exporta e importa en la pestaña Umbrales. Puedes completarla a mano o pedirle a una IA que la llene (siguiente sección).</p>
+    <pre class="code" id="tpl">${esc(tpl)}</pre>
+    <div class="row" style="flex-wrap:wrap"><button data-act="copy-tpl">Copiar plantilla</button><button data-act="dl-tpl">Descargar plantilla (.json)</button></div></details>
+  <details class="box" open><summary>Prompt para generar un perfil con una IA</summary>
+    <p>Cuando una empresa te entregue su tabla de umbrales (texto, PDF o imagen), pega este prompt en una IA, adjunta la tabla y guarda la respuesta como archivo <code>.json</code>. Luego impórtalo con “⬆ Importar” en la pestaña Umbrales.</p>
+    <pre class="code" id="prm">${esc(prm)}</pre>
+    <div class="row" style="flex-wrap:wrap"><button data-act="copy-prompt">Copiar prompt</button></div></details>
+  </div>`;
+}
+async function copyText(text, msg) {
+  try { await navigator.clipboard.writeText(text); toast(msg); return; } catch (e) { /* se prueba el método alternativo */ }
+  const ta = document.createElement("textarea"); ta.value = text; ta.style.cssText = "position:fixed;opacity:0"; document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand("copy"); } catch (e) { /* ignorar */ } ta.remove();
+  toast(ok ? msg : "No se pudo copiar automáticamente: haz clic en el texto y copia con Ctrl+C.");
+}
+/** Etiqueta cada celda con el nombre de su columna, para el formato de tarjetas en pantallas pequeñas. */
+function labelTables() {
+  document.querySelectorAll("table.cards").forEach((t) => {
+    const hs = [...t.querySelectorAll("tr:first-child th")].map((h) => h.textContent.trim());
+    t.querySelectorAll("tr").forEach((tr, i) => { if (i) [...tr.children].forEach((td, k) => td.setAttribute("data-label", hs[k] || "")); });
+  });
 }
 
 /* ---------- eventos ---------- */
-const syncTabs = () => document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === S.tab));
-const renderMain = () => (S.tab === "explore" ? renderExplore() : S.tab === "compare" ? renderCompare() : renderThresholds());
-const render = () => { renderSide(); syncTabs(); renderMain(); };
+const syncTabs = () => { document.body.dataset.tab = S.tab; document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === S.tab)); };
+const renderMain = () => (S.tab === "explore" ? renderExplore() : S.tab === "compare" ? renderCompare() : S.tab === "thresholds" ? renderThresholds() : renderGuide());
+function renderProf() { $("#prof").innerHTML = S.pf.list.map((p) => `<option value="${esc(p.id)}" ${p.id === S.pf.active ? "selected" : ""}>${esc(p.name)}</option>`).join(""); }
+const render = () => { renderProf(); renderSide(); syncTabs(); renderMain(); };
+
+function importProfiles(text) {
+  try {
+    const list = parseProfiles(text), added = list.map((x) => ({ id: uid(), name: uniqueName(x.name), description: x.description || "", draft: !!x.draft, rules: x.rules }));
+    S.pf.list.push(...added); setActive(added[0].id); renderProf(); renderMain();
+    toast(added.length === 1 ? `Perfil “${added[0].name}” cargado (${added[0].rules.length} contadores).` : `${added.length} perfiles cargados.`);
+  } catch (e) { toast(e.message); }
+}
+async function downloadProfiles(list, name) {
+  try { await saveBlob(new Blob([serializeProfiles(list)], { type: "application/json" }), name); toast("Perfil guardado."); list.forEach((x) => (x.dirty = false)); saveProfiles(); if (S.tab === "thresholds") renderThresholds(); }
+  catch (e) { toast(e && e.code === "declined" ? "Descarga cancelada." : "No se pudo guardar el archivo."); }
+}
 
 document.addEventListener("click", (e) => {
+  const menu = e.target.closest("details.menu");
+  document.querySelectorAll("details.menu[open]").forEach((d) => { if (d !== menu || e.target.closest(".mi")) d.open = false; });
   const t = e.target.closest("[data-act],[data-tab],[data-exp]");
   if (!t) return;
-  if (t.dataset.tab) { S.tab = t.dataset.tab; syncTabs(); renderMain(); return; }
+  if (t.dataset.tab) { e.preventDefault(); S.tab = t.dataset.tab; syncTabs(); renderMain(); window.scrollTo({ top: 0 }); return; }
   if (t.dataset.exp) { exportChart(t.dataset.exp); return; }
   const a = t.dataset.act;
   if (a === "rm") { const id = +t.dataset.id; S.files = S.files.filter((f) => f.id !== id); S.sel = S.sel.filter((x) => x.fid !== id); if (S.hl && S.hl.fid === id) S.hl = null; S.cmp = {}; render(); }
@@ -368,11 +458,37 @@ document.addEventListener("click", (e) => {
   } else if (a === "more") { S.lim[t.dataset.k] = (S.lim[t.dataset.k] || 10) + 20; renderExplore(); }
   else if (a === "hl-clear") { S.hl = null; renderExplore(); }
   else if (a === "rz") { S.xr = null; renderExplore(); }
-  else if (a === "rules-reset") { S.rules = cloneRules(); saveRules(); renderThresholds(); }
+  else if (a === "side") document.body.classList.toggle("side-open");
+  else if (a === "copy-tpl") copyText(JSON.stringify(PROFILE_TEMPLATE, null, 2), "Plantilla copiada.");
+  else if (a === "copy-prompt") copyText(aiPrompt(), "Prompt copiado.");
+  else if (a === "dl-tpl") { saveBlob(new Blob([JSON.stringify(PROFILE_TEMPLATE, null, 2)], { type: "application/json" }), "plantilla-umbrales.json").then(() => toast("Plantilla guardada.")).catch((e) => toast(e && e.code === "declined" ? "Descarga cancelada." : "No se pudo guardar el archivo.")); }
+  else if (a === "pf-new") { const np = { id: uid(), name: uniqueName("Nuevo perfil"), description: "", draft: false, rules: [] }; S.pf.list.push(np); setActive(np.id); S.editMeta = true; renderProf(); renderThresholds(); }
+  else if (a === "meta") { S.editMeta = !S.editMeta; renderThresholds(); }
+  else if (a === "pf-dup") { const p = activeOf(S.pf), np = { ...clone(p), id: uid(), name: uniqueName(p.name + " (copia)"), base: undefined, dirty: false }; S.pf.list.push(np); setActive(np.id); renderProf(); renderThresholds(); }
+  else if (a === "pf-del") { S.delArm = activeOf(S.pf).id; renderThresholds(); }
+  else if (a === "pf-del-no") { S.delArm = null; renderThresholds(); }
+  else if (a === "pf-del-yes") { const p = activeOf(S.pf); S.delArm = null; if (!p.base && S.pf.list.length > 1) { S.pf.list = S.pf.list.filter((x) => x.id !== p.id); setActive(S.pf.list[0].id); renderProf(); } renderThresholds(); }
+  else if (a === "pf-dl") { const p = activeOf(S.pf); downloadProfiles([p], `umbrales-${slug(p.name)}.json`); }
+  else if (a === "pf-dlall") downloadProfiles(S.pf.list, "umbrales-todos.json");
+  else if (a === "pf-reset") { const p = activeOf(S.pf), b = BUILTIN_PROFILES.find((x) => x.id === p.base); if (b) { p.rules = clone(b.rules); p.rev = b.rev; S.rules = p.rules; touch(); p.edited = false; saveProfiles(); renderThresholds(); } }
+  else if (a === "rule-add") { activeOf(S.pf).rules.push({ id: uid(), name: "Nuevo contador", ideal: "", pat: "", dir: "lt", warn: 0, crit: 0 }); touch(); renderThresholds(); }
+  else if (a === "rule-del" || a === "rule-up" || a === "rule-down") {
+    const R = activeOf(S.pf).rules, i = R.findIndex((x) => x.id === t.dataset.id), j = a === "rule-up" ? i - 1 : i + 1;
+    if (i < 0) return;
+    if (a === "rule-del") R.splice(i, 1); else if (j >= 0 && j < R.length) [R[i], R[j]] = [R[j], R[i]];
+    touch(); renderThresholds();
+  }
 });
 document.addEventListener("change", (e) => {
   const t = e.target;
   if (t.id === "fi") addFiles([...t.files]);
+  else if (t.id === "pf-file") { const f = t.files[0]; if (f) f.text().then(importProfiles); t.value = ""; }
+  else if (t.dataset.pf) { setActive(t.value); S.delArm = null; renderProf(); renderMain(); }
+  else if (t.dataset.p) {
+    const p = activeOf(S.pf), k = t.dataset.p;
+    if (k === "draft") p.draft = t.checked; else p[k] = k === "name" ? t.value.trim() || p.name : t.value;
+    touch(); renderProf(); if (k === "draft") renderThresholds();
+  }
   else if (t.dataset.fmt !== undefined) { S.fmt = t.value; document.querySelectorAll("[data-fmt]").forEach((x) => (x.value = t.value)); }
   else if (t.dataset.s) {
     const [fid, sid] = t.dataset.s.split(":"), f = +fid, i = S.sel.findIndex((x) => x.fid === f && x.sid === sid);
@@ -381,10 +497,12 @@ document.addEventListener("change", (e) => {
   } else if (t.dataset.al) { S[t.dataset.al] = t.value; S.lim = {}; renderExplore(); }
   else if (t.dataset.r) {
     const [id, field] = t.dataset.r.split("."), r = S.rules.find((x) => x.id === id);
+    if (!r) return;
     if (field === "dir") r.dir = t.value;
-    else if (field === "profile") { r.profile = t.value; Object.assign(r, PROFILES[t.value]); }
-    else r[field] = +t.value;
-    saveRules(); renderThresholds();
+    else if (field === "variant") { r.variant = t.value; Object.assign(r, r.variants[t.value]); }
+    else if (field === "warn" || field === "crit") { r[field] = +t.value; if (r.variants && r.variant) r.variants[r.variant] = { warn: r.warn, crit: r.crit }; }
+    else r[field] = t.value;
+    touch(); renderThresholds();
   } else if (t.dataset.c) {
     const p = t.dataset.c;
     if (p === "key") S.cmp.key = t.value;
@@ -402,4 +520,6 @@ addEventListener("dragover", (e) => e.preventDefault());
 addEventListener("drop", (e) => { e.preventDefault(); if (e.dataTransfer && e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]); });
 addEventListener("resize", () => { if (S.files.length && S.tab !== "thresholds") renderMain(); });
 document.querySelectorAll("img.logo").forEach((i) => (i.src = LOGO));
+$("img.logo-app.lt").src = LOGO_L; $("img.logo-app.dk").src = LOGO_D;
+new MutationObserver(labelTables).observe($("#main"), { childList: true, subtree: true });
 render();

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Analizador de CSV</title>
+<link rel="icon" type="image/png" href="data:image/png;base64,__FAV__">
 <style>
 :root{--bg:#f6f6f4;--panel:#fff;--text:#1a1a1a;--muted:#6b6b6b;--line:#e2e2de;--accent:#2563eb;--logo:none;--crit-ink:#b91c1c;--warn-ink:#b45309;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141414;--panel:#1e1e1e;--text:#ececec;--muted:#9a9a9a;--line:#333;--accent:#6ea0ff;--logo:invert(1);--crit-ink:#fca5a5;--warn-ink:#fbbf24;color-scheme:dark}}
@@ -11,11 +12,15 @@
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;display:flex;flex-direction:column}
-header,footer{display:flex;align-items:center;gap:12px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+header,footer{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
 footer{border-top:1px solid var(--line);border-bottom:0;margin-top:auto;color:var(--muted);font-size:13px}
-.logo{height:34px;filter:var(--logo)} footer .logo{height:22px}
-h1{font-size:17px;margin:0 18px 0 0}
-nav{display:flex;gap:4px}
+footer .logo{height:22px;filter:var(--logo)}
+.brand{margin:0 14px 0 0;display:flex;align-items:center;font-size:0}
+.logo-app{height:40px;display:block} .logo-app.dk{display:none}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .logo-app.lt{display:none}:root:not([data-theme="light"]) .logo-app.dk{display:block}}
+:root[data-theme="dark"] .logo-app.lt{display:none}:root[data-theme="dark"] .logo-app.dk{display:block}
+#sidetoggle{display:none;font-size:16px;padding:5px 10px}
+nav{display:flex;gap:4px;overflow-x:auto}
 nav button{border:0;background:none;color:var(--muted);padding:7px 14px;border-radius:8px;font:inherit;cursor:pointer}
 nav button.on{background:var(--bg);color:var(--text);font-weight:600}
 .wrap{display:grid;grid-template-columns:310px 1fr;gap:14px;padding:14px 18px;align-items:start}
@@ -41,7 +46,7 @@ button{cursor:pointer} button:hover{border-color:var(--accent)}
 summary{cursor:pointer;font-weight:600;padding:4px 0}
 .warn{margin:0;font-size:12px;color:#b45309}
 .cw{position:relative;margin-bottom:10px;padding:4px;border-radius:12px}
-canvas{display:block;width:100%}
+canvas{display:block;width:100%;touch-action:pan-y}
 .tip{position:absolute;top:14px;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 11px;font-size:12px;box-shadow:0 8px 28px #0003;z-index:2;font-variant-numeric:tabular-nums;line-height:1.6}
 .sel{position:absolute;top:18px;bottom:32px;background:#2563eb33;border:1px solid var(--accent);pointer-events:none}
 i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
@@ -56,6 +61,39 @@ tr:last-child td{border-bottom:0} th{color:var(--muted);font-weight:600;font-siz
 #toast{position:fixed;bottom:56px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:9}
 h3.t{margin:4px 0 8px;display:flex;align-items:center;gap:10px}
 .tip small{display:inline}
+.pf{margin-left:auto;display:flex;gap:8px;align-items:center;color:var(--muted);font-size:13px}
+label.btn{display:inline-block;cursor:pointer;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 8px} label.btn:hover{border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+input[type=text]{min-width:0}
+.row input[type=text]{flex:1}
+.ph2{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.ph2 select{min-width:200px}
+.ph2.conf{padding:8px 10px;border:1px solid var(--crit-ink);border-radius:10px;color:var(--crit-ink)}
+button.danger{border-color:var(--crit-ink);color:var(--crit-ink)}
+details.menu{position:relative} details.menu>summary{list-style:none;cursor:pointer} details.menu>summary::-webkit-details-marker{display:none}
+.menu .mi{position:absolute;left:0;top:calc(100% + 6px);z-index:6;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px;display:flex;flex-direction:column;min-width:250px;box-shadow:0 8px 28px #0003}
+.menu .mi button{border:0;background:none;text-align:left;padding:8px 10px;border-radius:6px} .menu .mi button:hover{background:var(--bg)}
+.dirty{color:var(--warn-ink);font-size:12px}
+.pmeta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 2px 12px}
+table.rt input,table.rt select{background:transparent;border:1px solid transparent;border-bottom-color:var(--line);border-radius:0;padding:3px 4px}
+table.rt input:hover,table.rt select:hover{border-color:var(--line);background:var(--bg)}
+table.rt input:focus,table.rt select:focus{border-color:var(--accent);background:var(--bg);outline:none}
+table.rt input.bad{border-color:var(--crit-ink)}
+table.rt input:disabled{opacity:.4}
+table.rt td{vertical-align:middle}
+table.rt th,table.rt td{padding:6px 5px}
+table.rt .nm{min-width:200px} table.rt .nm input{display:block;width:100%} table.rt .nm1{font-weight:600} table.rt .pt{font:11.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--muted)}
+table.rt .sub{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:3px;font-size:12px}
+table.rt .sub select{font-size:12px;padding:1px 2px}
+.chip.zero{color:var(--warn-ink)}
+table.rt .x{opacity:.45} table.rt tr:hover .x{opacity:1}
+.chip{display:inline-block;min-width:22px;text-align:center;padding:1px 7px;border-radius:999px;background:var(--bg);font-size:12px}
+#side-guide{display:none}
+.guide{display:flex;flex-direction:column;gap:12px}
+.guide details.box>summary{font-weight:600;cursor:pointer}
+.guide ol{margin:6px 0 0 18px;padding:0} .guide li{margin:5px 0} .guide p{margin:6px 0}
+pre.code{margin:8px 0;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;overflow:auto;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;max-height:380px;user-select:all}
+details.hint{margin:0 2px 14px;font-size:12px;color:var(--muted)} details.hint p{margin:6px 0 0}
 .b{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700}
 .b.crit{background:rgba(220,38,38,.15);color:var(--crit-ink)} .b.warn{background:rgba(245,158,11,.2);color:var(--warn-ink)}
 .chips{display:flex;gap:6px;margin-left:auto}
@@ -67,19 +105,50 @@ table.al th,table.al td{text-align:left;white-space:nowrap} table.al td.p{white-
 .nr{margin:2px 4px 16px;font-size:12px}
 .ok{color:var(--muted)}
 table.al{margin-bottom:10px}
+@media(max-width:820px){
+  body[data-tab=thresholds] .pf{display:none}
+  #sidetoggle{display:inline-block}
+  aside{display:none;max-height:none} body.side-open aside{display:flex}
+  .pf{margin-left:0;width:100%} .pf select{flex:1}
+  .wrap{padding:10px 12px} .logo-app{height:32px} header{padding:8px 12px} .brand{margin-right:6px}
+}
+@media(max-width:760px){
+  table.cards{border:0;background:none;display:block;overflow:visible}
+  table.cards tbody{display:block}
+  table.cards tr:first-child{display:none}
+  table.cards tr{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;padding:12px;margin-bottom:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+  table.cards td{display:block;padding:0;border:0;text-align:left !important;white-space:normal !important}
+  table.cards td::before{content:attr(data-label);display:block;font-size:11px;color:var(--muted)}
+  table.cards td[data-label=""]::before{display:none}
+  table.cards td.nm,table.cards td.p,table.cards td.cr{grid-column:1/-1}
+  table.cards td.nm{min-width:0}
+  table.rt td.mv{order:10} table.rt td.dl{order:11;text-align:right !important}
+  table.rt input[type=text],table.rt select{width:100% !important}
+  .grid2{grid-template-columns:1fr}
+  .exp{margin-left:0;width:100%;flex-wrap:wrap}
+  .ph2 select{min-width:0;flex:1 1 100%}
+  .menu .mi{left:auto;right:0}
+}
+@media(max-width:480px){
+  nav button{padding:6px 9px;font-size:13px}
+  .exp button,.exp select{font-size:13px;padding:5px 8px}
+  .bar{gap:8px}
+}
 </style>
 </head>
-<body>
+<body class="side-open">
 <header>
-  <img class="logo" alt="Logo">
-  <h1>Analizador de CSV</h1>
-  <nav><button data-tab="explore" class="on">Explorar</button><button data-tab="compare">Comparar</button><button data-tab="thresholds">Umbrales</button></nav>
+  <button id="sidetoggle" data-act="side" aria-label="Archivos y series">☰ Archivos</button>
+  <h1 class="brand"><img class="logo-app lt" alt="Analizador de CSV"><img class="logo-app dk" alt="" aria-hidden="true"></h1>
+  <nav><button data-tab="explore" class="on">Explorar</button><button data-tab="compare">Comparar</button><button data-tab="thresholds">Umbrales</button><button data-tab="guide">Instrucciones</button></nav>
+  <label class="pf">Umbrales <select id="prof" data-pf="active" title="Perfil de umbrales activo"></select></label>
 </header>
 <div class="wrap"><aside id="side"></aside><main id="main"></main></div>
 <footer><img class="logo" alt=""><span>Desarrollado por Tomas Sandoval</span></footer>
 <div id="toast" hidden></div>
 <script>
 const LOGO = "data:image/png;base64,__LOGO__";
+const LOGO_L = "data:image/png;base64,__LOGO_L__", LOGO_D = "data:image/png;base64,__LOGO_D__";
 /*CORE*/
 //--UI--
 /*UI*/
