@@ -9,7 +9,7 @@ npm test        # tests del núcleo
 
 - `src/core/` núcleo en TypeScript: parser genérico (`parser/`) y comparación de periodos (`compare.ts`).
 - `src/ui/` interfaz (vanilla JS + canvas, responsiva) y plantilla HTML.
-- `src/assets/` logo de la herramienta (variantes clara y oscura), favicon y logo del desarrollador (pie de página).
+- `src/assets/` logo de la herramienta (variantes clara y oscura), favicon y logo del desarrollador (pie de página, `logo-desarrollador.png`).
 - `scripts/build.mjs` une todo en `dist/index.html`. Ábrelo con doble clic o súbelo a cualquier hosting estático.
 
 Desarrollado por Tomas Sandoval.

@@ -29,7 +29,7 @@ const saveProfiles = () => { try { localStorage.setItem(PKEY, JSON.stringify(S.p
 function setActive(id) { S.pf.active = id; S.rules = activeOf(S.pf).rules; saveProfiles(); }
 const uniqueName = (n) => { let k = n, i = 2; while (S.pf.list.some((p) => p.name === k)) k = `${n} (${i++})`; return k; };
 
-const S = { files: [], sel: [], tab: "explore", xr: null, hl: null, nid: 1, q: "", msgs: [], cmp: {}, fmt: "png", pf: loadProfiles(), rules: [], sev: "all", sort: "date", lim: {}, rows: [] };
+const S = { files: [], sel: [], tab: "explore", xr: null, hl: null, nid: 1, q: "", msgs: [], cmp: {}, fmt: "png", pf: loadProfiles(), rules: [], sev: "all", sort: "date", lim: {}, rows: [], delArm: null, editMeta: false };
 S.rules = activeOf(S.pf).rules;
 const F = (id) => S.files.find((f) => f.id === +id);
 const SER = (e) => F(e.fid)?.d.series.find((s) => s.id === e.sid);
@@ -55,7 +55,6 @@ async function addFiles(list) {
     } catch (e) { S.msgs.push(`${f.name}: no se pudo leer (${e.message})`); }
   }
   S.cmp = {}; render();
-  if (S.files.length && matchMedia("(max-width:820px)").matches) document.body.classList.remove("side-open");
 }
 
 /* ---------- gráfico canvas ---------- */
@@ -292,7 +291,7 @@ function renderExplore() {
   const m = $("#main");
   if (!S.files.length) { m.innerHTML = `<div class="empty">Carga uno o varios CSV para comenzar.<br>Cada archivo se interpreta solo: columna de fecha, series numéricas y etiquetas.</div>`; return; }
   const sel = S.sel.map((e, i) => ({ e, s: SER(e), f: F(e.fid), color: COLORS[i % COLORS.length] })).filter((x) => x.s);
-  if (!sel.length) { m.innerHTML = `<div class="empty">Marca uno o más contadores en el panel izquierdo para ver su gráfico y sus alertas.</div>`; return; }
+  if (!sel.length) { m.innerHTML = `<div class="empty">Marca uno o más contadores en el panel “Archivos y series” (en pantallas pequeñas, con el botón ☰ Archivos) para ver su gráfico y sus alertas.</div>`; return; }
   const groups = new Map();
   sel.forEach((x) => { const k = keyOf(x.s); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); });
   const panels = [...groups.values()];
@@ -422,7 +421,7 @@ function labelTables() {
 }
 
 /* ---------- eventos ---------- */
-const syncTabs = () => { document.body.dataset.tab = S.tab; document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === S.tab)); };
+const syncTabs = () => { document.body.dataset.view = S.tab; document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === S.tab)); };
 const renderMain = () => (S.tab === "explore" ? renderExplore() : S.tab === "compare" ? renderCompare() : S.tab === "thresholds" ? renderThresholds() : renderGuide());
 function renderProf() { $("#prof").innerHTML = S.pf.list.map((p) => `<option value="${esc(p.id)}" ${p.id === S.pf.active ? "selected" : ""}>${esc(p.name)}</option>`).join(""); }
 const render = () => { renderProf(); renderSide(); syncTabs(); renderMain(); };
@@ -442,7 +441,7 @@ async function downloadProfiles(list, name) {
 document.addEventListener("click", (e) => {
   const menu = e.target.closest("details.menu");
   document.querySelectorAll("details.menu[open]").forEach((d) => { if (d !== menu || e.target.closest(".mi")) d.open = false; });
-  const t = e.target.closest("[data-act],[data-tab],[data-exp]");
+  const t = e.target.closest("[data-act],[data-exp],button[data-tab],a[data-tab]");
   if (!t) return;
   if (t.dataset.tab) { e.preventDefault(); S.tab = t.dataset.tab; syncTabs(); renderMain(); window.scrollTo({ top: 0 }); return; }
   if (t.dataset.exp) { exportChart(t.dataset.exp); return; }
@@ -481,8 +480,8 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("change", (e) => {
   const t = e.target;
-  if (t.id === "fi") addFiles([...t.files]);
-  else if (t.id === "pf-file") { const f = t.files[0]; if (f) f.text().then(importProfiles); t.value = ""; }
+  if (t.id === "fi") { const fl = [...t.files]; t.value = ""; addFiles(fl); }
+  else if (t.id === "pf-file") { const f = t.files[0]; t.value = ""; if (f) f.text().then(importProfiles); }
   else if (t.dataset.pf) { setActive(t.value); S.delArm = null; renderProf(); renderMain(); }
   else if (t.dataset.p) {
     const p = activeOf(S.pf), k = t.dataset.p;

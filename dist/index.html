@@ -88,15 +88,12 @@ table.rt .sub select{font-size:12px;padding:1px 2px}
 .chip.zero{color:var(--warn-ink)}
 table.rt .x{opacity:.45} table.rt tr:hover .x{opacity:1}
 .chip{display:inline-block;min-width:22px;text-align:center;padding:1px 7px;border-radius:999px;background:var(--bg);font-size:12px}
-#side-guide{display:none}
 .guide{display:flex;flex-direction:column;gap:12px}
 .guide details.box>summary{font-weight:600;cursor:pointer}
 .guide ol{margin:6px 0 0 18px;padding:0} .guide li{margin:5px 0} .guide p{margin:6px 0}
 pre.code{margin:8px 0;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;overflow:auto;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;max-height:380px;user-select:all}
-details.hint{margin:0 2px 14px;font-size:12px;color:var(--muted)} details.hint p{margin:6px 0 0}
 .b{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:700}
 .b.crit{background:rgba(220,38,38,.15);color:var(--crit-ink)} .b.warn{background:rgba(245,158,11,.2);color:var(--warn-ink)}
-.chips{display:flex;gap:6px;margin-left:auto}
 table.al th,table.al td{text-align:left;white-space:nowrap} table.al td.p{white-space:normal} table.al td.n,table.al th.n{text-align:right}
 .go{padding:3px 10px;font-size:12px}
 .more{display:block;margin:0 auto 14px}
@@ -106,9 +103,9 @@ table.al th,table.al td{text-align:left;white-space:nowrap} table.al td.p{white-
 .ok{color:var(--muted)}
 table.al{margin-bottom:10px}
 @media(max-width:820px){
-  body[data-tab=thresholds] .pf{display:none}
+  body[data-view=thresholds] .pf{display:none}
   #sidetoggle{display:inline-block}
-  aside{display:none;max-height:none} body.side-open aside{display:flex}
+  aside{display:none;max-height:45vh} body.side-open aside{display:flex}
   .pf{margin-left:0;width:100%} .pf select{flex:1}
   .wrap{padding:10px 12px} .logo-app{height:32px} header{padding:8px 12px} .brand{margin-right:6px}
 }
@@ -664,7 +661,7 @@ const saveProfiles = () => { try { localStorage.setItem(PKEY, JSON.stringify(S.p
 function setActive(id) { S.pf.active = id; S.rules = activeOf(S.pf).rules; saveProfiles(); }
 const uniqueName = (n) => { let k = n, i = 2; while (S.pf.list.some((p) => p.name === k)) k = `${n} (${i++})`; return k; };
 
-const S = { files: [], sel: [], tab: "explore", xr: null, hl: null, nid: 1, q: "", msgs: [], cmp: {}, fmt: "png", pf: loadProfiles(), rules: [], sev: "all", sort: "date", lim: {}, rows: [] };
+const S = { files: [], sel: [], tab: "explore", xr: null, hl: null, nid: 1, q: "", msgs: [], cmp: {}, fmt: "png", pf: loadProfiles(), rules: [], sev: "all", sort: "date", lim: {}, rows: [], delArm: null, editMeta: false };
 S.rules = activeOf(S.pf).rules;
 const F = (id) => S.files.find((f) => f.id === +id);
 const SER = (e) => F(e.fid)?.d.series.find((s) => s.id === e.sid);
@@ -690,7 +687,6 @@ async function addFiles(list) {
     } catch (e) { S.msgs.push(`${f.name}: no se pudo leer (${e.message})`); }
   }
   S.cmp = {}; render();
-  if (S.files.length && matchMedia("(max-width:820px)").matches) document.body.classList.remove("side-open");
 }
 
 /* ---------- gráfico canvas ---------- */
@@ -927,7 +923,7 @@ function renderExplore() {
   const m = $("#main");
   if (!S.files.length) { m.innerHTML = `<div class="empty">Carga uno o varios CSV para comenzar.<br>Cada archivo se interpreta solo: columna de fecha, series numéricas y etiquetas.</div>`; return; }
   const sel = S.sel.map((e, i) => ({ e, s: SER(e), f: F(e.fid), color: COLORS[i % COLORS.length] })).filter((x) => x.s);
-  if (!sel.length) { m.innerHTML = `<div class="empty">Marca uno o más contadores en el panel izquierdo para ver su gráfico y sus alertas.</div>`; return; }
+  if (!sel.length) { m.innerHTML = `<div class="empty">Marca uno o más contadores en el panel “Archivos y series” (en pantallas pequeñas, con el botón ☰ Archivos) para ver su gráfico y sus alertas.</div>`; return; }
   const groups = new Map();
   sel.forEach((x) => { const k = keyOf(x.s); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); });
   const panels = [...groups.values()];
@@ -1057,7 +1053,7 @@ function labelTables() {
 }
 
 /* ---------- eventos ---------- */
-const syncTabs = () => { document.body.dataset.tab = S.tab; document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === S.tab)); };
+const syncTabs = () => { document.body.dataset.view = S.tab; document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === S.tab)); };
 const renderMain = () => (S.tab === "explore" ? renderExplore() : S.tab === "compare" ? renderCompare() : S.tab === "thresholds" ? renderThresholds() : renderGuide());
 function renderProf() { $("#prof").innerHTML = S.pf.list.map((p) => `<option value="${esc(p.id)}" ${p.id === S.pf.active ? "selected" : ""}>${esc(p.name)}</option>`).join(""); }
 const render = () => { renderProf(); renderSide(); syncTabs(); renderMain(); };
@@ -1077,7 +1073,7 @@ async function downloadProfiles(list, name) {
 document.addEventListener("click", (e) => {
   const menu = e.target.closest("details.menu");
   document.querySelectorAll("details.menu[open]").forEach((d) => { if (d !== menu || e.target.closest(".mi")) d.open = false; });
-  const t = e.target.closest("[data-act],[data-tab],[data-exp]");
+  const t = e.target.closest("[data-act],[data-exp],button[data-tab],a[data-tab]");
   if (!t) return;
   if (t.dataset.tab) { e.preventDefault(); S.tab = t.dataset.tab; syncTabs(); renderMain(); window.scrollTo({ top: 0 }); return; }
   if (t.dataset.exp) { exportChart(t.dataset.exp); return; }
@@ -1116,8 +1112,8 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("change", (e) => {
   const t = e.target;
-  if (t.id === "fi") addFiles([...t.files]);
-  else if (t.id === "pf-file") { const f = t.files[0]; if (f) f.text().then(importProfiles); t.value = ""; }
+  if (t.id === "fi") { const fl = [...t.files]; t.value = ""; addFiles(fl); }
+  else if (t.id === "pf-file") { const f = t.files[0]; t.value = ""; if (f) f.text().then(importProfiles); }
   else if (t.dataset.pf) { setActive(t.value); S.delArm = null; renderProf(); renderMain(); }
   else if (t.dataset.p) {
     const p = activeOf(S.pf), k = t.dataset.p;

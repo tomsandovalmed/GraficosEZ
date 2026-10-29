@@ -8,7 +8,7 @@ const core = ["parser/csv", "parser/time", "parser/perfmon", "parser/dataset", "
 const html = readFileSync("src/ui/index.template.html", "utf8")
   .split("/*CORE*/").join(core)
   .split("/*UI*/").join(readFileSync("src/ui/app.js", "utf8"))
-  .split("__LOGO__").join(readFileSync("src/assets/logo.png").toString("base64"))
+  .split("__LOGO__").join(readFileSync("src/assets/logo-desarrollador.png").toString("base64"))
   .split("__LOGO_L__").join(readFileSync("src/assets/logo-app-light.png").toString("base64"))
   .split("__LOGO_D__").join(readFileSync("src/assets/logo-app-dark.png").toString("base64"))
   .split("__FAV__").join(readFileSync("src/assets/favicon.png").toString("base64"));
