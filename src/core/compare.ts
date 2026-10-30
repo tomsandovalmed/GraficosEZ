@@ -21,7 +21,7 @@ export function sliceDataset(d: Dataset, from: number, to: number): Dataset {
 
 export interface Comparison {
   prev: Stats; curr: Stats;
-  deltaPct: { mean: number; p95: number; max: number };
+  deltaPct: { min: number; mean: number; max: number };
 }
 const pct = (a: number, b: number) => (a === 0 ? NaN : ((b - a) / Math.abs(a)) * 100);
 
@@ -31,6 +31,6 @@ export function comparePeriods(prev: Dataset, curr: Dataset, key: string): Compa
   if (!a || !b) return null;
   return {
     prev: computeStats(a.values), curr: computeStats(b.values),
-    deltaPct: { mean: pct(a.mean, b.mean), p95: pct(a.p95, b.p95), max: pct(a.max, b.max) },
+    deltaPct: { min: pct(a.min, b.min), mean: pct(a.mean, b.mean), max: pct(a.max, b.max) },
   };
 }

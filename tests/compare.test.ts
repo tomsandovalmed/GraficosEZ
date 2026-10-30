@@ -17,5 +17,6 @@ test("comparePeriods calcula la variación porcentual", () => {
   const a = parseDataset(mk([1, 2, 3], () => 10), "a.csv"), b = parseDataset(mk([1, 2, 3], () => 15), "b.csv");
   const c = comparePeriods(a, b, "cpu")!;
   assert.equal(Math.round(c.deltaPct.mean), 50);
+  assert.equal(Math.round(c.deltaPct.min), 50);
   assert.equal(comparePeriods(a, b, "no-existe"), null);
 });

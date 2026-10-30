@@ -1,7 +1,7 @@
 "use strict";
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
+const COLORS = ["#3b82f6", "#f43f5e", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
 const DAYMS = 86400000;
 const fmtT = (t) => new Date(t).toISOString().slice(0, 16).replace("T", " ");
 const dstr = (t) => new Date(t).toISOString().slice(0, 10);
@@ -72,6 +72,64 @@ function niceScale(lo, hi, n = 5) {
   return { lo: a, hi: b, ticks };
 }
 
+/** Pastilla redondeada con texto; devuelve su ancho. `right` ancla el borde derecho en x. */
+function pill(c, text, x, yMid, fg, bg, right) {
+  c.font = `600 10.5px ${FONT}`;
+  const w = Math.ceil(c.measureText(text).width) + 16, h = 18, x0 = right ? x - w : x, y0 = yMid - h / 2;
+  c.beginPath(); c.moveTo(x0 + 9, y0); c.arcTo(x0 + w, y0, x0 + w, y0 + h, 9); c.arcTo(x0 + w, y0 + h, x0, y0 + h, 9); c.arcTo(x0, y0 + h, x0, y0, 9); c.arcTo(x0, y0, x0 + w, y0, 9); c.closePath();
+  c.fillStyle = bg === true ? "rgba(128,128,128,0.16)" : bg; c.fill();
+  c.fillStyle = fg; c.textAlign = "left"; c.textBaseline = "middle"; c.fillText(text, x0 + 8, yMid + 0.5); c.textBaseline = "alphabetic";
+  return w;
+}
+const fitText = (c, t, maxW) => { if (c.measureText(t).width <= maxW) return t; while (t.length > 1 && c.measureText(t + "…").width > maxW) t = t.slice(0, -1); return t + "…"; };
+const fmtV = (v, unit) => (Number.isFinite(v) ? fmtN(v) + (unit === "%" ? "%" : "") : "–");
+const fmtPct = (d) => (Number.isFinite(d) ? (d > 0 ? "+" : "") + d.toFixed(1) + " %" : "–");
+/** Condición de un contador: OK, la alerta detectada o “sin umbral”. */
+function condOf(time, values, r, gap) {
+  if (!r || r.dir === "none" || r.relation) return { sev: "none", pill: "SIN UMBRAL", text: "" };
+  const al = findAlerts(time, values, r, gap);
+  if (!al.length) return { sev: "ok", pill: "OK", text: "Dentro del rango ideal" };
+  const sev = al.some((a) => a.severity === "critical") ? "critical" : "warning";
+  return { sev, pill: sev === "critical" ? "CRITICAL" : "WARNING", text: `${r.name} ${r.dir === "lt" ? ">" : "<"} ${sev === "critical" ? r.crit : r.warn} · ${al.length} ${al.length === 1 ? "evento" : "eventos"}` };
+}
+/** Tabla “Estadísticas generales” al pie del gráfico (queda dentro de la imagen exportada). */
+function drawStats(c, rows, g) {
+  const { W, y0, wide, rowH, muted, grid, ink, V } = g, PILL = { ok: [V("--ok-ink"), "rgba(34,197,94,0.16)"], warning: [V("--warn-ink"), "rgba(245,158,11,0.2)"], critical: [V("--crit-ink"), "rgba(220,38,38,0.16)"], none: [muted, true] };
+  c.strokeStyle = grid; c.lineWidth = 1; c.beginPath(); c.moveTo(14, y0 + 0.5); c.lineTo(W - 14, y0 + 0.5); c.stroke();
+  c.textAlign = "left"; c.fillStyle = ink; c.font = `600 13px ${FONT}`; c.fillText("Estadísticas generales", 14, y0 + 24);
+  let y = y0 + 38;
+  const cMax = W - 18, cAvg = cMax - 92, cMin = cAvg - 92, serW = Math.max(160, Math.min(W * 0.34, 360)), condX = 14 + serW + 8;
+  if (wide) {
+    c.font = `600 10.5px ${FONT}`; c.fillStyle = muted;
+    c.textAlign = "left"; c.fillText("SERIE", 14, y + 14); c.fillText("CONDICIÓN", condX, y + 14);
+    c.textAlign = "right"; c.fillText("MÍNIMO", cMin, y + 14); c.fillText("PROMEDIO", cAvg, y + 14); c.fillText("MÁXIMO", cMax, y + 14);
+    y += 24;
+  }
+  rows.forEach((r, i) => {
+    if (i % 2 === 0) { c.fillStyle = "rgba(128,128,128,0.07)"; c.fillRect(8, y, W - 16, rowH); }
+    const mid = y + rowH / 2, [fg, bg] = r.cond ? PILL[r.cond.sev] : [ink, true];
+    c.textBaseline = "alphabetic";
+    if (wide) {
+      c.fillStyle = r.color || muted; c.beginPath(); c.arc(20, mid, 4.5, 0, Math.PI * 2); if (r.color) c.fill();
+      c.font = `500 12.5px ${FONT}`; c.fillStyle = ink; c.textAlign = "left"; c.fillText(fitText(c, r.label, serW - (r.color ? 24 : 0)), r.color ? 32 : 14, mid + 4.5);
+      if (r.cond) { const pw2 = pill(c, r.cond.pill, condX, mid, fg, bg); c.font = `12px ${FONT}`; c.fillStyle = muted; c.textAlign = "left"; c.fillText(fitText(c, r.cond.text, cMin - 90 - condX - pw2 - 8), condX + pw2 + 8, mid + 4.5); }
+      c.textAlign = "right"; c.font = `500 12.5px ${FONT}`;
+      for (const [x, k] of [[cMin, "min"], [cAvg, "avg"], [cMax, "max"]]) {
+        if (r.change) { const d = r.change[k]; c.fillStyle = !Number.isFinite(d) ? muted : d > 0 ? V("--accent") : V("--warn-ink"); c.fillText(fmtPct(d), x, mid + 4.5); }
+        else { c.fillStyle = ink; c.fillText(fmtV(r[k], r.unit), x, mid + 4.5); }
+      }
+    } else {
+      c.font = `500 12.5px ${FONT}`; c.fillStyle = ink; c.textAlign = "left";
+      if (r.color) { c.fillStyle = r.color; c.beginPath(); c.arc(20, y + 15, 4.5, 0, Math.PI * 2); c.fill(); c.fillStyle = ink; }
+      c.fillText(fitText(c, r.label, W - 60), r.color ? 32 : 14, y + 19);
+      let x = 14; if (r.cond) x += pill(c, r.cond.pill, 14, y + 36, fg, bg) + 8;
+      c.font = `12px ${FONT}`; c.fillStyle = muted; c.textAlign = "left";
+      c.fillText(r.change ? `Mín ${fmtPct(r.change.min)} · Prom ${fmtPct(r.change.avg)} · Máx ${fmtPct(r.change.max)}` : `Mín ${fmtV(r.min, r.unit)} · Prom ${fmtV(r.avg, r.unit)} · Máx ${fmtV(r.max, r.unit)}`, x, y + 40);
+    }
+    y += rowH;
+  });
+}
+
 function drawChart(cv, lines, o = {}) {
   const dpr = Math.max(devicePixelRatio || 1, 2), W = cv.clientWidth;
   const st = getComputedStyle(document.documentElement), V = (n) => st.getPropertyValue(n).trim();
@@ -81,11 +139,12 @@ function drawChart(cv, lines, o = {}) {
   const leg = []; let lx = 14, ly = 0;
   for (const l of lines) { const w = mc.measureText(l.label).width + 30; if (lx > 14 && lx + w > W - 10) { lx = 14; ly += 20; } leg.push([lx, ly, l]); lx += w + 8; }
   const titleH = o.title ? (o.sub ? 42 : 26) : 0, legH = lines.length ? ly + 28 : 0;
-  cv.style.height = (o.h || 320) + titleH + legH + "px";
+  const st2 = o.stats || null, wide = W >= 620, rowH = wide ? 30 : 50, tableH = st2 ? 14 + 28 + (wide ? 24 : 0) + st2.length * rowH + 12 : 0;
+  cv.style.height = (o.h || 320) + titleH + legH + tableH + "px";
   const H = cv.clientHeight;
   cv.width = W * dpr; cv.height = H * dpr;
   const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const P = { l: 52, r: 18, t: 8 + titleH + legH, b: 30 }, pw = W - P.l - P.r, ph = H - P.t - P.b;
+  const P = { l: 52, r: 18, t: 8 + titleH + legH, b: 30 }, pw = W - P.l - P.r, ph = H - P.t - P.b - tableH;
   c.textAlign = "left";
   if (o.title) { c.fillStyle = ink; c.font = `600 14px ${FONT}`; c.fillText(o.title, 14, 24); if (o.sub) { c.fillStyle = muted; c.font = `12px ${FONT}`; c.fillText(o.sub, 14, 42); } }
   c.font = `12px ${FONT}`;
@@ -127,7 +186,7 @@ function drawChart(cv, lines, o = {}) {
   for (const t of ticks) {
     const px = X(t);
     c.strokeStyle = grid; c.beginPath(); c.moveTo(px, P.t + ph); c.lineTo(px, P.t + ph + 4); c.stroke();
-    c.fillStyle = muted; c.textAlign = px < P.l + 24 ? "left" : px > W - P.r - 24 ? "right" : "center"; c.fillText(fmt(t), px, H - 10);
+    c.fillStyle = muted; c.textAlign = px < P.l + 24 ? "left" : px > W - P.r - 24 ? "right" : "center"; c.fillText(fmt(t), px, P.t + ph + 20);
   }
   // franjas Warning / Critical
   if (z) {
@@ -136,7 +195,7 @@ function drawChart(cv, lines, o = {}) {
       const ya = yv(a), yb = yv(b), top = Math.min(ya, yb), h = Math.abs(ya - yb);
       if (h < 1) return;
       c.fillStyle = col; c.fillRect(P.l, top, pw, h);
-      if (h >= 17) { c.font = `600 11px ${FONT}`; c.textAlign = "right"; c.lineWidth = 3; c.strokeStyle = panel; c.strokeText(txt, W - P.r - 8, top + 14); c.fillStyle = tc; c.fillText(txt, W - P.r - 8, top + 14); }
+      if (h >= 22) pill(c, txt, W - P.r - 8, top + 12, tc, panel, true);
     };
     const op = z.dir === "lt" ? ">" : "<";
     band(z.warn, z.crit, WARN, `Warning Zone ${op} ${z.warn}`, V("--warn-ink"));
@@ -162,8 +221,9 @@ function drawChart(cv, lines, o = {}) {
       cur.push(pt); prev = j; pp = pt;
     }
     if (cur.length) segs.push(cur);
-    if (lines.length <= 2) {
-      const g = c.createLinearGradient(0, P.t, 0, P.t + ph); g.addColorStop(0, l.color + "30"); g.addColorStop(1, l.color + "03"); c.fillStyle = g;
+    if (lines.length <= 2 && segs.length) {
+      let top = P.t + ph; for (const sg of segs) for (const pt of sg) if (pt[1] < top) top = pt[1];
+      const g = c.createLinearGradient(0, top, 0, Math.min(P.t + ph, top + 170)); g.addColorStop(0, l.color + (lines.length === 1 ? "38" : "26")); g.addColorStop(1, l.color + "00"); c.fillStyle = g;
       for (const sg of segs) if (sg.length > 1) { c.beginPath(); c.moveTo(sg[0][0], P.t + ph); for (const [x, y] of sg) c.lineTo(x, y); c.lineTo(sg[sg.length - 1][0], P.t + ph); c.closePath(); c.fill(); }
     }
     c.strokeStyle = l.color; c.lineWidth = 1.7; c.lineJoin = "round"; c.lineCap = "round"; c.setLineDash([]);
@@ -180,6 +240,7 @@ function drawChart(cv, lines, o = {}) {
     const px = X(o.hl.peak.x), py = Y(o.hl.peak.y);
     c.fillStyle = o.hl.peak.color; c.strokeStyle = panel; c.lineWidth = 2.5; c.beginPath(); c.arc(px, py, 6, 0, Math.PI * 2); c.stroke(); c.fill();
   }
+  if (st2) drawStats(c, st2, { W, y0: P.t + ph + P.b + 6, wide, rowH, muted, grid, ink, panel, V });
   cv._img = c.getImageData(0, 0, cv.width, cv.height);
   cv._g = { x0, x1, P, pw, ph, W, lines, o, X, Y, dpr, panel };
 }
@@ -213,8 +274,8 @@ function bind(cv, onZoom) {
   cv.ondblclick = () => onZoom(null);
 }
 const chartInto = (id, lines, o, z) => { const cv = $("#" + id); drawChart(cv, lines, o); bind(cv, z || (() => {})); };
-const cw = (id) => `<div class="cw"><canvas id="${id}"></canvas><div class="tip" hidden></div><div class="sel" hidden></div></div>`;
-const expBar = () => `<span class="exp"><select data-fmt title="Formato de imagen"><option value="png" ${S.fmt === "png" ? "selected" : ""}>PNG</option><option value="jpeg" ${S.fmt === "jpeg" ? "selected" : ""}>JPEG</option></select><button data-exp="dl">Descargar gráfico</button><button data-exp="cp">Copiar al portapapeles</button></span>`;
+const cw = (id, per) => `<div class="cw"><canvas id="${id}"></canvas>${per ? `<span class="pexp"><button data-exp="cp:${id}" title="Copiar este gráfico como imagen">Copiar</button><button data-exp="dl:${id}" title="Descargar este gráfico como imagen">Descargar</button></span>` : ""}<div class="tip" hidden></div><div class="sel" hidden></div></div>`;
+const expBar = (n = 1) => `<span class="exp"><select data-fmt title="Formato de imagen"><option value="png" ${S.fmt === "png" ? "selected" : ""}>PNG</option><option value="jpeg" ${S.fmt === "jpeg" ? "selected" : ""}>JPEG</option></select><button class="pri" data-exp="dl">${n > 1 ? "Descargar todos" : "Descargar gráfico"}</button><button data-exp="cp">${n > 1 ? "Copiar todos" : "Copiar al portapapeles"}</button></span>`;
 
 /* ---------- guardar archivos ---------- */
 async function saveBlob(blob, name) {
@@ -224,8 +285,9 @@ async function saveBlob(blob, name) {
 }
 
 /* ---------- exportar gráfico ---------- */
-async function exportChart(mode) {
-  const cvs = [...document.querySelectorAll("#main .cw canvas")];
+async function exportChart(spec) {
+  const [mode, id] = spec.split(":");
+  const cvs = id ? [$("#" + id)].filter(Boolean) : [...document.querySelectorAll("#main .cw canvas")];
   if (!cvs.length) return;
   const out = document.createElement("canvas"); out.width = Math.max(...cvs.map((x) => x.width)); out.height = cvs.reduce((a, x) => a + x.height, 0);
   const c = out.getContext("2d");
@@ -257,7 +319,10 @@ function seriesList() {
   if (!$("#slist")) return;
   const q = S.q.toLowerCase();
   $("#slist").innerHTML = S.files.map((f) => {
-    const items = f.d.series.filter((s) => s.label.toLowerCase().includes(q)).map((s) => `<label class="si"><input type="checkbox" data-s="${f.id}:${s.id}" ${S.sel.some((e) => e.fid === f.id && e.sid === s.id) ? "checked" : ""}> ${esc(s.label)}</label>`).join("");
+    const items = f.d.series.filter((x) => x.label.toLowerCase().includes(q)).map((x) => {
+      const i = S.sel.findIndex((e) => e.fid === f.id && e.sid === x.id);
+      return `<label class="si ${i >= 0 ? "on" : ""}"><input type="checkbox" data-s="${f.id}:${x.id}" ${i >= 0 ? "checked" : ""}><span>${esc(x.label)}</span>${i >= 0 ? `<i class="sw" style="background:${COLORS[i % COLORS.length]}"></i>` : ""}</label>`;
+    }).join("");
     return items ? `<details open><summary>${esc(origin(f))} <small>${f.d.series.length} series</small></summary>${items}</details>` : "";
   }).join("");
 }
@@ -296,15 +361,12 @@ function renderExplore() {
   sel.forEach((x) => { const k = keyOf(x.s); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); });
   const panels = [...groups.values()];
   S.rows = [];
-  const body = panels.map((g, i) => cw("cv" + i) + alertsHtml(g, "cv" + i)).join("");
-  m.innerHTML = `<div class="bar"><button data-act="rz">Restablecer zoom</button>${S.hl ? `<button data-act="hl-clear">Quitar resaltado</button>` : ""}${expBar()}<small>Un gráfico por contador; los servidores del mismo contador se superponen · arrastra para acercar · doble clic para volver · Umbrales: ${esc(activeOf(S.pf).name)}</small></div>${body}
-  <table class="cards"><tr><th>Serie</th><th>Servidor</th><th>Mín</th><th>Prom</th><th>P95</th><th>Máx</th><th>Desv</th><th>Sin dato</th><th>% Warning</th><th>% Critical</th></tr>${sel.map(({ s, f, color }) => {
-    const r = ruleFor(keyOf(s), S.rules), cp = r && r.dir !== "none" ? compliance(s.values, r) : null;
-    return `<tr><td><i style="background:${color}"></i>${esc(s.label)}</td><td>${esc(origin(f))}</td><td>${fmtN(s.min)}</td><td>${fmtN(s.mean)}</td><td>${fmtN(s.p95)}</td><td>${fmtN(s.max)}</td><td>${fmtN(s.std)}</td><td>${s.missing}</td><td>${cp ? cp.warningPct.toFixed(1) + " %" : "–"}</td><td>${cp ? cp.criticalPct.toFixed(1) + " %" : "–"}</td></tr>`;
-  }).join("")}</table>`;
+  const body = panels.map((g, i) => cw("cv" + i, panels.length > 1) + alertsHtml(g, "cv" + i)).join("");
+  m.innerHTML = `<div class="bar"><button data-act="rz">Restablecer zoom</button>${S.hl ? `<button data-act="hl-clear">Quitar resaltado</button>` : ""}${expBar(panels.length)}<small>Un gráfico por contador; los servidores del mismo contador se superponen · arrastra para acercar · doble clic para volver · Umbrales: ${esc(activeOf(S.pf).name)}</small></div>${body}`;
   panels.forEach((g, i) => {
     const r = ruleFor(keyOf(g[0].s), S.rules), L = labelsFor(g);
-    chartInto("cv" + i, g.map(({ s, f, color }, k) => ({ x: f.d.time, y: s.values, color, unit: s.unit, label: L[k] })), { h: panels.length > 1 ? 250 : 300, xr: S.xr, zones: zonesFor([keyOf(g[0].s)]), hl: hlFor(g), title: g[0].s.label, sub: r && r.dir !== "none" && !r.relation ? "Valor ideal: " + idealOf(r) : "" }, (z) => { S.xr = z; renderExplore(); });
+    const stats = g.map(({ s, f, color }, k) => ({ color, label: L[k], unit: s.unit, min: s.min, avg: s.mean, max: s.max, cond: condOf(f.d.time, s.values, r, f.d.quality.medianStepMs * 12 || Infinity) }));
+    chartInto("cv" + i, g.map(({ s, f, color }, k) => ({ x: f.d.time, y: s.values, color, unit: s.unit, label: L[k] })), { h: panels.length > 1 ? 250 : 300, xr: S.xr, zones: zonesFor([keyOf(g[0].s)]), hl: hlFor(g), title: g[0].s.label, sub: r && r.dir !== "none" && !r.relation ? "Valor ideal: " + idealOf(r) : "", stats }, (z) => { S.xr = z; renderExplore(); });
   });
 }
 
@@ -329,15 +391,16 @@ function renderCompare() {
   const head = `<div class="grid2">${side("a", c.a)}${side("b", c.b)}</div><div class="bar"><label>Métrica <select data-c="key">${common.map((s) => `<option value="${esc(keyOf(s))}" ${keyOf(s) === c.key ? "selected" : ""}>${esc(s.label)}</option>`).join("")}</select></label><label>Eje X <select data-c="mode"><option value="overlay" ${c.mode === "overlay" ? "selected" : ""}>Superpuesto (días desde el inicio de cada periodo)</option><option value="calendar" ${c.mode === "calendar" ? "selected" : ""}>Calendario real</option></select></label></div>`;
   const cmp = c.key && A.time.length && B.time.length ? comparePeriods(A, B, c.key) : null;
   if (!cmp) { m.innerHTML = head + `<div class="empty">No hay datos comparables: revisa las fechas o que ambos periodos compartan al menos una métrica.</div>`; return; }
-  const sa = A.series.find((s) => keyOf(s) === c.key), sb = B.series.find((s) => keyOf(s) === c.key), unit = sa.unit, zr = zonesFor([c.key]);
-  const row = (n, k) => { const d = cmp.deltaPct[k]; return `<tr><td>${n}</td><td>${fmtN(cmp.prev[k])}</td><td>${fmtN(cmp.curr[k])}</td><td class="${d > 0 ? "up" : "dn"}">${Number.isFinite(d) ? (d > 0 ? "+" : "") + d.toFixed(1) + " %" : "–"}</td></tr>`; };
-  m.innerHTML = head + `<table><tr><th>${esc(sa.label)} ${esc(unit)}</th><th>A</th><th>B</th><th>Cambio B vs A</th></tr>${row("Promedio", "mean")}${row("P95", "p95")}${row("Máximo", "max")}</table>
-  <h3 class="t">Superposición de periodos ${expBar()}</h3>${cw("cv0")}`;
+  const sa = A.series.find((s) => keyOf(s) === c.key), sb = B.series.find((s) => keyOf(s) === c.key), zr = zonesFor([c.key]), rule = ruleFor(c.key, S.rules);
+  m.innerHTML = head + `<h3 class="t">Superposición de periodos ${expBar()}</h3>${cw("cv0")}`;
   const rel = c.mode === "overlay";
   const mk = (n, slc, s, p, color) => { const t0 = dms(p.from); return { x: rel ? Float64Array.from(slc.time, (t) => t - t0) : slc.time, y: s.values, color, unit: s.unit, t0: rel ? t0 : undefined, label: `Periodo ${n} · ${origin(F(p.fid))} (${p.from} → ${p.to})` }; };
   const spanA = dms(c.a.to) + DAYMS - dms(c.a.from), spanB = dms(c.b.to) + DAYMS - dms(c.b.from);
   const xr = rel ? [0, Math.max(spanA, spanB)] : [Math.min(dms(c.a.from), dms(c.b.from)), Math.max(dms(c.a.to), dms(c.b.to)) + DAYMS];
-  chartInto("cv0", [mk("A", A, sa, c.a, COLORS[0]), mk("B", B, sb, c.b, COLORS[1])], { rel, xr, zones: zr, title: sa.label, sub: zr ? "Valor ideal: " + idealOf(zr) : "" });
+  const la = mk("A", A, sa, c.a, COLORS[0]), lb = mk("B", B, sb, c.b, COLORS[1]);
+  const row = (l, slc, ser, st) => ({ color: l.color, label: l.label, unit: ser.unit, min: st.min, avg: st.mean, max: st.max, cond: condOf(slc.time, ser.values, rule, slc.quality.medianStepMs * 12 || Infinity) });
+  const stats = [row(la, A, sa, cmp.prev), row(lb, B, sb, cmp.curr), { label: "Cambio B vs A", change: { min: cmp.deltaPct.min, avg: cmp.deltaPct.mean, max: cmp.deltaPct.max } }];
+  chartInto("cv0", [la, lb], { rel, xr, zones: zr, title: sa.label, sub: zr ? "Valor ideal: " + idealOf(zr) : "", stats });
 }
 
 /* ---------- vista Umbrales ---------- */
@@ -359,10 +422,12 @@ function renderThresholds() {
     <td class="dl"><button class="x" data-act="rule-del" data-id="${r.id}" title="Eliminar contador">✕</button></td></tr>`;
   }).join("");
   const opts = S.pf.list.map((x) => `<option value="${esc(x.id)}" ${x.id === p.id ? "selected" : ""}>${esc(x.name)}</option>`).join("");
-  const header = S.delArm === p.id
+  const header = S.delArm === "__factory__"
+    ? `<div class="ph2 conf"><span>¿Dejar solo los perfiles <b>SII</b> y <b>TGR</b> con sus valores de fábrica? Se eliminan los demás perfiles y todos tus cambios.</span><button data-act="pf-factory-yes" class="danger">Sí, restablecer</button><button data-act="pf-del-no">Cancelar</button></div>`
+    : S.delArm === p.id
     ? `<div class="ph2 conf"><span>¿Eliminar el perfil <b>${esc(p.name)}</b>? No se puede deshacer.</span><button data-act="pf-del-yes" class="danger">Sí, eliminar</button><button data-act="pf-del-no">Cancelar</button></div>`
-    : `<div class="ph2"><select data-pf="active" title="Perfil activo">${opts}</select><button data-act="pf-new">＋ Nuevo</button><button data-act="pf-dl">⬇ Exportar</button><label class="btn">⬆ Importar<input type="file" id="pf-file" accept=".json,application/json" hidden></label>
-      <details class="menu"><summary class="btn" title="Más opciones">⋯</summary><div class="mi"><button data-act="pf-dup">Duplicar perfil</button>${S.pf.list.length > 1 ? `<button data-act="pf-dlall">Exportar todos los perfiles</button>` : ""}${p.base ? `<button data-act="pf-reset">Restablecer valores de origen</button>` : ""}${!p.base && S.pf.list.length > 1 ? `<button data-act="pf-del">Eliminar perfil…</button>` : ""}</div></details>
+    : `<div class="ph2"><select data-pf="active" title="Perfil activo">${opts}</select><button class="pri" data-act="pf-new">＋ Nuevo</button><button data-act="pf-dl">⬇ Exportar</button><label class="btn">⬆ Importar<input type="file" id="pf-file" accept=".json,application/json" hidden></label>
+      <details class="menu"><summary class="btn" title="Más opciones">⋯</summary><div class="mi"><button data-act="pf-dup">Duplicar perfil</button>${S.pf.list.length > 1 ? `<button data-act="pf-dlall">Exportar todos los perfiles</button>` : ""}${p.base ? `<button data-act="pf-reset">Restablecer valores de origen</button>` : ""}${!p.base && S.pf.list.length > 1 ? `<button data-act="pf-del">Eliminar perfil…</button>` : ""}<button data-act="pf-factory">Restablecer perfiles de fábrica (solo SII y TGR)…</button></div></details>
       ${p.dirty ? `<span class="dirty" title="Exporta el perfil para guardar una copia en un archivo">● Cambios sin exportar</span>` : ""}</div>`;
   const outdated = bi && (p.rev || 1) < bi.rev ? `<p class="warn" style="margin:-4px 2px 12px">Hay una versión más nueva de los valores de fábrica de este perfil. Tus cambios se conservan; usa ⋯ → “Restablecer valores de origen” si quieres actualizarlo.</p>` : "";
   const meta = `<div class="pmeta"><b>${esc(p.name)}</b>${p.draft ? `<span class="b warn">BORRADOR</span>` : ""}<small style="display:inline">${esc(p.description || "Sin descripción")}</small><button class="x" data-act="meta">${S.editMeta ? "Listo" : "✎ Editar detalles"}</button></div>
@@ -465,6 +530,8 @@ document.addEventListener("click", (e) => {
   else if (a === "meta") { S.editMeta = !S.editMeta; renderThresholds(); }
   else if (a === "pf-dup") { const p = activeOf(S.pf), np = { ...clone(p), id: uid(), name: uniqueName(p.name + " (copia)"), base: undefined, dirty: false }; S.pf.list.push(np); setActive(np.id); renderProf(); renderThresholds(); }
   else if (a === "pf-del") { S.delArm = activeOf(S.pf).id; renderThresholds(); }
+  else if (a === "pf-factory") { S.delArm = "__factory__"; renderThresholds(); }
+  else if (a === "pf-factory-yes") { S.delArm = null; S.pf = { active: "sii", list: BUILTIN_PROFILES.map((x) => ({ ...clone(x), base: x.id })) }; S.rules = activeOf(S.pf).rules; saveProfiles(); renderProf(); renderThresholds(); toast("Perfiles restablecidos: solo SII y TGR."); }
   else if (a === "pf-del-no") { S.delArm = null; renderThresholds(); }
   else if (a === "pf-del-yes") { const p = activeOf(S.pf); S.delArm = null; if (!p.base && S.pf.list.length > 1) { S.pf.list = S.pf.list.filter((x) => x.id !== p.id); setActive(S.pf.list[0].id); renderProf(); } renderThresholds(); }
   else if (a === "pf-dl") { const p = activeOf(S.pf); downloadProfiles([p], `umbrales-${slug(p.name)}.json`); }
@@ -492,7 +559,7 @@ document.addEventListener("change", (e) => {
   else if (t.dataset.s) {
     const [fid, sid] = t.dataset.s.split(":"), f = +fid, i = S.sel.findIndex((x) => x.fid === f && x.sid === sid);
     if (i >= 0) S.sel.splice(i, 1); else if (S.sel.length < COLORS.length) S.sel.push({ fid: f, sid }); else { t.checked = false; return; }
-    renderExplore();
+    seriesList(); renderExplore();
   } else if (t.dataset.al) { S[t.dataset.al] = t.value; S.lim = {}; renderExplore(); }
   else if (t.dataset.r) {
     const [id, field] = t.dataset.r.split("."), r = S.rules.find((x) => x.id === id);
@@ -516,7 +583,10 @@ document.addEventListener("change", (e) => {
 });
 document.addEventListener("input", (e) => { if (e.target.id === "q") { S.q = e.target.value; seriesList(); } });
 addEventListener("dragover", (e) => e.preventDefault());
-addEventListener("drop", (e) => { e.preventDefault(); if (e.dataTransfer && e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]); });
+let dragN = 0;
+addEventListener("dragenter", () => { dragN++; document.body.classList.add("dragging"); });
+addEventListener("dragleave", () => { if (--dragN <= 0) { dragN = 0; document.body.classList.remove("dragging"); } });
+addEventListener("drop", (e) => { e.preventDefault(); dragN = 0; document.body.classList.remove("dragging"); if (e.dataTransfer && e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]); });
 addEventListener("resize", () => { if (S.files.length && S.tab !== "thresholds") renderMain(); });
 document.querySelectorAll("img.logo").forEach((i) => (i.src = LOGO));
 $("img.logo-app.lt").src = LOGO_L; $("img.logo-app.dk").src = LOGO_D;

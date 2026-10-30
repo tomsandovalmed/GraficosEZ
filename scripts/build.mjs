@@ -11,6 +11,7 @@ const html = readFileSync("src/ui/index.template.html", "utf8")
   .split("__LOGO__").join(readFileSync("src/assets/logo-desarrollador.png").toString("base64"))
   .split("__LOGO_L__").join(readFileSync("src/assets/logo-app-light.png").toString("base64"))
   .split("__LOGO_D__").join(readFileSync("src/assets/logo-app-dark.png").toString("base64"))
+  .split("__VERSION__").join(JSON.parse(readFileSync("package.json", "utf8")).version.split(".").slice(0, 2).join("."))
   .split("__FAV__").join(readFileSync("src/assets/favicon.png").toString("base64"));
 mkdirSync("dist", { recursive: true });
 writeFileSync("dist/index.html", html);
