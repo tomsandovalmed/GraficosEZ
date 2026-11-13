@@ -1,0 +1,36 @@
+{
+  "format": "analizador-csv.umbrales",
+  "version": 1,
+  "name": "Nombre del perfil (empresa o cliente)",
+  "description": "De dónde salen estos valores (documento, fecha, responsable…)",
+  "draft": false,
+  "rules": [
+    {
+      "id": "cpu",
+      "name": "% Processor Time",
+      "ideal": "< 80 %",
+      "pat": "Processor(_Total)\\% Processor Time",
+      "dir": "lt",
+      "warn": 80,
+      "crit": 90
+    },
+    {
+      "id": "cache",
+      "name": "Buffer cache hit ratio",
+      "ideal": "> 95 %",
+      "pat": "Buffer cache hit ratio",
+      "dir": "gt",
+      "warn": 95,
+      "crit": 90
+    },
+    {
+      "id": "sesiones",
+      "name": "User Connections",
+      "ideal": "Variable",
+      "pat": "User Connections",
+      "dir": "none",
+      "warn": 0,
+      "crit": 0
+    }
+  ]
+}

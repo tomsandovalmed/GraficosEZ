@@ -1,0 +1,1060 @@
+% =====================================================================
+%  GraficosEZ - Analizador de CSV
+%  Manual de usuario
+%
+%  Compilar (dos pasadas para el índice):
+%     pdflatex manual.tex && pdflatex manual.tex
+%  o bien:
+%     latexmk -pdf manual.tex
+%  También compila en Overleaf (subir manual.tex y la carpeta img/).
+% =====================================================================
+\documentclass[11pt,a4paper,oneside]{report}
+
+% ---------- idioma y tipografía ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[spanish,es-tabla,es-noshorthands,es-nodecimaldot]{babel}
+\usepackage{microtype}
+
+% ---------- página ----------
+\usepackage[margin=2.5cm,headheight=14pt]{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{parskip}
+
+% ---------- elementos ----------
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{tcolorbox}
+\usepackage{amsmath,amssymb}
+\usepackage[hidelinks]{hyperref}
+
+\graphicspath{{img/}{../../src/assets/}}
+
+% ---------- colores (tomados de la interfaz) ----------
+\definecolor{acento}{HTML}{3B6EF6}
+\definecolor{tinta}{HTML}{0F172A}
+\definecolor{suave}{HTML}{64748B}
+\definecolor{linea}{HTML}{E4E7EC}
+\definecolor{fondo}{HTML}{F3F4F7}
+\definecolor{okc}{HTML}{15803D}
+\definecolor{warnc}{HTML}{B45309}
+\definecolor{critc}{HTML}{B91C1C}
+
+\hypersetup{colorlinks=true,linkcolor=acento,urlcolor=acento,
+  pdftitle={GraficosEZ - Manual de usuario},pdfauthor={Tomas Sandoval}}
+
+% ---------- títulos ----------
+\titleformat{\chapter}[display]
+  {\normalfont\sffamily\bfseries\color{tinta}}
+  {\large\color{acento}Capítulo \thechapter}{4pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{-10pt}{24pt}
+\titleformat*{\section}{\normalfont\sffamily\Large\bfseries\color{tinta}}
+\titleformat*{\subsection}{\normalfont\sffamily\large\bfseries\color{tinta}}
+
+% ---------- encabezado y pie ----------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\sffamily\color{suave}GraficosEZ · Manual de usuario}
+\fancyhead[R]{\small\sffamily\color{suave}\leftmark}
+\fancyfoot[C]{\small\sffamily\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\small\sffamily\thepage}\renewcommand{\headrulewidth}{0pt}}
+
+% ---------- listas ----------
+\setlist{itemsep=2pt,topsep=4pt}
+
+% ---------- código ----------
+\lstdefinestyle{json}{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{fondo},
+  frame=single, rulecolor=\color{linea},
+  framesep=6pt, xleftmargin=8pt, xrightmargin=8pt,
+  breaklines=true, columns=fullflexible, keepspaces=true,
+  showstringspaces=false,
+  literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+           {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+           {ñ}{{\~n}}1 {Ñ}{{\~N}}1 {…}{{\ldots}}3 {·}{{\textperiodcentered}}1
+}
+\lstset{style=json}
+
+% ---------- cajas ----------
+\newtcolorbox{nota}[1][Nota]{colback=acento!5,colframe=acento,
+  fonttitle=\sffamily\bfseries,title=#1,arc=2mm,boxrule=0.6pt}
+\newtcolorbox{aviso}[1][Importante]{colback=warnc!6,colframe=warnc,
+  fonttitle=\sffamily\bfseries,title=#1,arc=2mm,boxrule=0.6pt}
+\newtcolorbox{consejo}[1][Consejo]{colback=okc!5,colframe=okc,
+  fonttitle=\sffamily\bfseries,title=#1,arc=2mm,boxrule=0.6pt}
+
+% ---------- macros ----------
+\newcommand{\app}{\textsf{\textbf{GraficosEZ}}}
+\newcommand{\boton}[1]{\fcolorbox{linea}{white}{\small\sffamily #1}}
+\newcommand{\pestana}[1]{\textsf{\textbf{\color{acento}#1}}}
+\newcommand{\campo}[1]{\textsf{\textit{#1}}}
+\newcommand{\bs}{\textbackslash}
+\newcommand{\warnz}{\textsf{\textbf{\color{warnc}WARNING}}}
+\newcommand{\critz}{\textsf{\textbf{\color{critc}CRITICAL}}}
+\newcommand{\okz}{\textsf{\textbf{\color{okc}OK}}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% =====================================================================
+\begin{document}
+
+% ---------------------------- portada ----------------------------
+\begin{titlepage}
+  \centering
+  \vspace*{2.5cm}
+  \includegraphics[width=0.55\textwidth]{logo-app-light.png}\par
+  \vspace{1.5cm}
+  {\sffamily\Huge\bfseries\color{tinta} Manual de usuario\par}
+  \vspace{0.4cm}
+  {\sffamily\Large\color{suave} Analizador de CSV con series de tiempo\\
+   y alertas por umbrales\par}
+  \vspace{2cm}
+  {\color{acento}\rule{0.6\textwidth}{1pt}}\par
+  \vspace{0.6cm}
+  {\sffamily\large Versión 1.0\par}
+  \vspace{0.2cm}
+  {\sffamily\normalsize\color{suave}\url{https://tomsandovalmed.github.io/GraficosEZ/}\par}
+  \vfill
+  \vspace{0.3cm}
+  {\sffamily\color{suave} Desarrollado por Tomas Sandoval\par}
+  \vspace{0.2cm}
+  {\sffamily\small\color{suave} Noviembre de 2026\par}
+\end{titlepage}
+
+\tableofcontents
+
+% =====================================================================
+\chapter{Introducción}
+
+\app{} (también llamado \emph{Analizador de CSV}) es una herramienta web para
+\textbf{explorar, comparar y auditar series de tiempo} contenidas en archivos
+CSV. Fue pensada especialmente para los registros de rendimiento de
+\emph{Performance Monitor} (Perfmon) de Windows y SQL Server, pero funciona con
+cualquier CSV que tenga una columna de fecha/hora y columnas numéricas.
+
+\section{Características principales}
+
+\begin{itemize}
+  \item \textbf{Funciona 100\,\% en el navegador.} Los archivos se leen en tu
+        propio equipo; no se suben a ningún servidor.
+  \item \textbf{Lectura automática de los CSV:} detecta el separador, la
+        columna de fecha, el formato de fecha, las columnas numéricas y el
+        servidor de origen, sin configurar nada.
+  \item \textbf{Reconocimiento de Perfmon:} entiende cabeceras del tipo
+        \texttt{\bs\bs SERVIDOR\bs Objeto\bs Contador}, incluidas las instancias
+        con nombre de SQL Server.
+  \item \textbf{Gráficos interactivos:} un gráfico por contador, varios
+        servidores superpuestos, zoom con el ratón, lectura de valores al pasar
+        el cursor y franjas de color \warnz{} y \critz.
+  \item \textbf{Alertas automáticas:} agrupa las muestras fuera de rango en
+        episodios con fecha, severidad, valor pico y duración, y permite saltar
+        a cada uno en el gráfico.
+  \item \textbf{Comparación de periodos:} superpone dos rangos de fechas (del
+        mismo archivo o de archivos distintos) y calcula la variación
+        porcentual.
+  \item \textbf{Perfiles de umbrales editables:} cada empresa o cliente tiene su
+        propio perfil; se crean, editan, importan y exportan como archivos
+        \texttt{.json}. Incluye los perfiles de fábrica \textbf{SII} y
+        \textbf{TGR}.
+  \item \textbf{Exportación de gráficos} a PNG o JPEG, o copia directa al
+        portapapeles, con la tabla de estadísticas incluida en la imagen.
+  \item \textbf{Diseño adaptable:} se usa en escritorio, tableta o teléfono, y
+        respeta el modo claro u oscuro del sistema.
+\end{itemize}
+
+\section{Privacidad}
+
+Todo el procesamiento ocurre en la pestaña del navegador. Los archivos CSV no
+se envían a Internet. Lo único que la aplicación guarda es la lista de
+\textbf{perfiles de umbrales}, en el almacenamiento local del navegador
+(\emph{localStorage}). Los archivos cargados \textbf{no} se guardan: al
+recargar la página hay que volver a cargarlos.
+
+\section{Convenciones de este manual}
+
+\begin{itemize}
+  \item \pestana{Explorar}: nombre de una pestaña de la aplicación.
+  \item \boton{Descargar gráfico}: un botón o control que se pulsa.
+  \item \campo{Valor ideal}: un campo o columna de una tabla.
+\end{itemize}
+
+% =====================================================================
+\chapter{Acceso y requisitos}
+
+\section{Abrir la aplicación}
+
+Hay dos formas de usarla:
+
+\begin{enumerate}
+  \item \textbf{En línea (recomendado).} Abre
+        \url{https://tomsandovalmed.github.io/GraficosEZ/} en el navegador. La
+        página se actualiza sola cada vez que se publica una nueva versión.
+  \item \textbf{Sin conexión.} El proyecto se compila en un único archivo,
+        \texttt{dist/index.html}, sin dependencias externas. Basta con
+        descargarlo y abrirlo con doble clic. También se puede copiar a una
+        carpeta compartida o a cualquier hosting estático.
+\end{enumerate}
+
+\section{Navegadores compatibles}
+
+Cualquier navegador moderno y actualizado (Chrome, Edge, Firefox o Safari).
+
+\begin{nota}
+La función \boton{Copiar al portapapeles} para imágenes depende de que el
+navegador lo permita. Algunos navegadores solo lo admiten en páginas
+\texttt{https} (como la versión en línea) y pueden bloquearlo al abrir el
+archivo local. Si falla, la aplicación lo avisa; usa entonces
+\boton{Descargar gráfico}.
+\end{nota}
+
+\section{Versión}
+
+La versión instalada aparece en la esquina inferior derecha de la página
+(por ejemplo, \emph{Versión 1.0}).
+
+% =====================================================================
+\chapter{La interfaz}
+
+La pantalla se divide en cuatro zonas:
+
+\begin{description}
+  \item[Barra superior.] Logo, las cuatro pestañas
+    (\pestana{Explorar}, \pestana{Comparar}, \pestana{Umbrales} e
+    \pestana{Instrucciones}) y, a la derecha, el selector
+    \campo{Umbrales}, que indica qué perfil se aplica a gráficos y alertas.
+  \item[Panel lateral «Archivos y series».] Zona para cargar archivos, lista
+    de archivos cargados, buscador y lista de series para marcar.
+  \item[Área principal.] Muestra el contenido de la pestaña activa.
+  \item[Pie de página.] Autor y versión.
+\end{description}
+
+\section{Tema claro y oscuro}
+
+La aplicación sigue automáticamente la preferencia de colores del sistema
+operativo. Los gráficos exportados usan los colores del tema activo: si se
+exporta en modo oscuro, la imagen tendrá fondo oscuro.
+
+\section{Pantallas pequeñas}
+
+En pantallas de hasta unos 820\,px de ancho (teléfonos y tabletas):
+
+\begin{itemize}
+  \item El panel lateral se oculta y se abre con el botón
+        \boton{Archivos} de la barra superior.
+  \item Las tablas se transforman en \emph{tarjetas}: cada fila se muestra como
+        un bloque con el nombre de cada columna sobre su valor.
+\end{itemize}
+
+% =====================================================================
+\chapter{Cargar archivos}
+
+\section{Cómo cargar}
+
+\begin{itemize}
+  \item \textbf{Arrastrar y soltar} uno o varios archivos en cualquier parte de
+        la ventana, o
+  \item hacer clic en el recuadro \emph{«Arrastra tus CSV aquí»} y elegirlos
+        (se aceptan \texttt{.csv}, \texttt{.tsv} y \texttt{.txt}).
+\end{itemize}
+
+Se pueden cargar varios archivos a la vez y seguir agregando más. Cada
+archivo aparece en el panel lateral con:
+
+\begin{itemize}
+  \item su nombre;
+  \item el \textbf{origen}: el servidor (y la instancia SQL con nombre, si la
+        hay, por ejemplo \texttt{SRV01\bs VENTAS});
+  \item el número de filas y el rango de fechas.
+\end{itemize}
+
+El botón \boton{\texttimes} a la derecha quita el archivo.
+
+\section{Qué detecta la aplicación automáticamente}
+
+\subsection{Formato del archivo}
+\begin{itemize}
+  \item \textbf{Separador:} coma (\texttt{,}), punto y coma (\texttt{;}),
+        tabulación o barra vertical (\texttt{|}). Se elige el que más aparece
+        en la primera línea, sin contar los que están entre comillas.
+  \item Codificación con o sin BOM, saltos de línea Windows o Unix, campos
+        entre comillas y comillas escapadas (\texttt{""}).
+  \item \textbf{Coma decimal:} si el separador es punto y coma, se asume que los
+        números usan coma decimal (\texttt{1,5} = 1.5), como en las
+        configuraciones regionales en español.
+\end{itemize}
+
+\subsection{Columna de fecha y hora}
+Se usa la \textbf{primera columna} en la que al menos el 95\,\% de los primeros
+200 valores no vacíos parezcan una fecha. Formatos admitidos:
+
+\begin{center}
+\begin{tabular}{ll}
+  \toprule
+  Formato & Ejemplo \\
+  \midrule
+  Año-mes-día & \texttt{2026-07-25 14:30:00} \\
+  Día/mes/año & \texttt{25/07/2026 14:30} \\
+  Mes/día/año (Perfmon en inglés) & \texttt{07/25/2026 14:30:00.500} \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+  \item Separadores de fecha: \texttt{/}, \texttt{-} o \texttt{.}; la hora
+        puede ir tras un espacio o una \texttt{T}; los segundos y las
+        fracciones de segundo son opcionales.
+  \item Años de dos dígitos se interpretan como 20\emph{xx}.
+  \item \textbf{Día/mes o mes/día:} si algún valor del primer campo es mayor que
+        12, el formato es día/mes/año. Si ninguno de los dos campos supera 12,
+        no se puede saber, y se asume \textbf{mes/día/año} (lo que usa
+        Perfmon), con un aviso.
+  \item Las horas se muestran \textbf{tal como vienen en el archivo}, sin
+        conversión de zona horaria.
+\end{itemize}
+
+\subsection{Columnas de datos}
+\begin{itemize}
+  \item Si al menos el 90\,\% de los valores no vacíos de una columna son
+        números, es una \textbf{serie} (se puede graficar).
+  \item Si no, es una columna de texto (\emph{etiqueta}); no se grafica, pero se
+        usa para identificar el origen cuando no hay cabecera de Perfmon.
+  \item Las celdas vacías o con solo espacios se tratan como «sin dato» y
+        aparecen como huecos en el gráfico.
+\end{itemize}
+
+\subsection{Cabeceras de Perfmon}
+Las columnas con formato
+\texttt{\bs\bs SERVIDOR\bs Objeto\bs Contador} se reconocen y se
+muestran como \emph{Objeto · Contador}. Además:
+\begin{itemize}
+  \item Se quita el prefijo de instancia de SQL Server
+        (\texttt{SQLServer:} para la instancia por defecto o
+        \texttt{MSSQL\$NOMBRE:} para una instancia con nombre). Así, el mismo
+        contador de dos servidores o instancias distintas se considera
+        \textbf{la misma métrica} y se puede superponer y comparar.
+  \item Se deduce la unidad: \% (contadores que empiezan con \% o contienen
+        \emph{ratio}), /s (terminan en \texttt{/sec}), KB, MB o ms.
+  \item El servidor de origen del archivo es el que más se repite en las
+        cabeceras.
+\end{itemize}
+
+\subsection{Calidad del dato}
+Al cargar, la aplicación también:
+\begin{itemize}
+  \item ordena por fecha las filas que vengan desordenadas;
+  \item descarta las filas con fecha repetida (se conserva la primera);
+  \item descarta las filas con fecha inválida.
+\end{itemize}
+Cada una de estas correcciones genera un aviso en color ámbar en el panel
+lateral, bajo el área de carga.
+
+\section{Mensajes al cargar}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{L{6.2cm}X}
+  \toprule
+  Mensaje & Significado y solución \\
+  \midrule
+  \emph{No se encontró una columna de fecha/hora reconocible} &
+    Ninguna columna tiene fechas en un formato admitido. Revisa que el archivo
+    tenga una columna de fecha y que el separador sea el correcto. \\
+  \emph{El archivo no tiene filas de datos} &
+    El archivo está vacío o solo tiene la cabecera. \\
+  \emph{sin filas con fecha válida} &
+    Se encontró la columna de fecha, pero ninguna fila se pudo interpretar. \\
+  \emph{Formato de fecha ambiguo: se asumió mes/día/año.} &
+    Aviso: comprueba en el gráfico que las fechas sean correctas. \\
+  \emph{N filas venían fuera de orden y se ordenaron por fecha.} &
+    Aviso informativo; los datos ya están corregidos. \\
+  \emph{N filas con fecha repetida se descartaron.} &
+    Aviso informativo. \\
+  \emph{N filas con fecha inválida se descartaron.} &
+    Aviso informativo. \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Seleccionar series}
+
+Debajo de los archivos aparece la lista de series agrupada por origen.
+
+\begin{itemize}
+  \item Usa \campo{Buscar serie\ldots} para filtrar por nombre.
+  \item Marca la casilla de cada serie que quieras ver. Cada serie marcada
+        recibe un color, que se muestra con un punto junto a su nombre.
+  \item Se pueden marcar hasta \textbf{8 series} a la vez.
+\end{itemize}
+
+% =====================================================================
+\chapter{Pestaña Explorar}
+
+Es la vista principal. Muestra un gráfico por cada \textbf{contador}
+seleccionado y, debajo de cada gráfico, su registro de alertas.
+
+\begin{consejo}
+Si marcas el mismo contador (por ejemplo \emph{\% Processor Time}) en
+archivos de varios servidores, todos se \textbf{superponen en un solo
+gráfico}, con un color por servidor. Así se comparan servidores de un
+vistazo.
+\end{consejo}
+
+\section{Partes del gráfico}
+
+\begin{description}
+  \item[Título y subtítulo.] Nombre del contador y, si el perfil activo tiene
+    umbral para él, su \emph{valor ideal} (por ejemplo «Valor ideal: $<$ 80\,\%»).
+  \item[Leyenda.] Un elemento por servidor. Si un mismo servidor aparece en
+    dos archivos, se añade el nombre del archivo entre paréntesis.
+  \item[Eje vertical.] Escala con valores redondos. Si todas las series son
+    porcentajes, el eje no pasa de 100\,\%.
+  \item[Eje horizontal.] Se adapta a la duración visible: horas si es menos de
+    dos días, mes-día y hora si es menos de veinte días, y fechas completas
+    para periodos más largos.
+  \item[Franjas de umbral.] Zona \warnz{} en ámbar y zona \critz{} en rojo, con
+    líneas discontinuas en cada límite y una etiqueta como
+    «Warning Zone $>$ 80».
+  \item[Huecos sin datos.] Cuando falta un tramo largo de datos (más de 12
+    veces el intervalo normal de muestreo), los extremos se unen con una línea
+    punteada tenue para que el hueco sea visible.
+  \item[Tabla «Estadísticas generales».] Al pie del gráfico, una fila por
+    serie con:
+    \begin{itemize}
+      \item \campo{Condición}: \okz{} (nunca salió del rango ideal), \warnz{} o
+            \critz{} (la peor alerta detectada, con el límite y el número de
+            eventos) o \textsf{SIN UMBRAL}.
+      \item \campo{Mínimo}, \campo{Promedio} y \campo{Máximo} de toda la serie
+            cargada (no solo del tramo visible con zoom).
+    \end{itemize}
+    Esta tabla forma parte de la imagen, así que se incluye al exportar.
+\end{description}
+
+\section{Interacción con el gráfico}
+
+\begin{itemize}
+  \item \textbf{Leer valores:} al pasar el cursor aparece una línea vertical y
+        un recuadro con la fecha y el valor de cada serie en ese instante.
+  \item \textbf{Acercar (zoom):} haz clic y arrastra horizontalmente sobre el
+        tramo de interés.
+  \item \textbf{Volver a la vista completa:} doble clic sobre el gráfico o
+        botón \boton{Restablecer zoom}.
+\end{itemize}
+
+El zoom se aplica a \textbf{todos} los gráficos de la pestaña a la vez, para
+poder comparar el mismo intervalo en distintos contadores.
+
+\section{Alertas detectadas}
+
+Debajo de cada gráfico con umbral aparece la sección
+\textbf{Alertas detectadas}. Una \emph{alerta} (o \emph{evento}) es un tramo
+de muestras \textbf{consecutivas} fuera del rango ideal. El tramo se corta
+cuando el valor vuelve al rango ideal o cuando falta un tramo largo de datos.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{lX}
+  \toprule
+  Columna & Contenido \\
+  \midrule
+  \campo{Fecha / hora} & Inicio del evento. \\
+  \campo{Severidad} & \critz{} si en algún momento entró en la zona crítica;
+                      si no, \warnz. \\
+  \campo{Servidor} & Solo si hay varios servidores en el gráfico. \\
+  \campo{Problema} & Contador y límite superado, por ejemplo
+                     «\% Processor Time $>$ 90». \\
+  \campo{Valor pico} & Valor más extremo alcanzado durante el evento. \\
+  \campo{Duración} & Desde la primera hasta la última muestra del evento
+                     («1 muestra» si fue un solo punto). \\
+  \campo{Acción} & Botón \boton{Ver en gráfico}. \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+Controles de la sección:
+\begin{itemize}
+  \item Contadores de \critz{} y \warnz{} totales.
+  \item Filtro: \emph{Todas}, \emph{Critical} o \emph{Warning}.
+  \item Orden: \emph{Por fecha} o \emph{Críticas primero}.
+  \item Se muestran 10 eventos; \boton{Mostrar más} añade 20 cada vez.
+\end{itemize}
+
+\boton{Ver en gráfico} acerca todos los gráficos al periodo del evento (con un
+margen alrededor), lo marca con una franja gris y señala el valor pico con un
+punto. Si la serie no estaba marcada, se marca sola. Para quitar la marca usa
+\boton{Quitar resaltado}.
+
+Si el contador no tiene umbral en el perfil activo (o es «Solo informativo»),
+se indica «Sin umbral para este contador: no genera alertas». Si tiene umbral
+y nunca salió del rango, se indica «Sin alertas».
+
+\section{Exportar gráficos}
+
+En la barra superior de la pestaña:
+
+\begin{itemize}
+  \item Selector de formato: \textbf{PNG} (recomendado para informes, nítido) o
+        \textbf{JPEG} (archivo más liviano).
+  \item \boton{Descargar gráfico}: guarda la imagen. Si hay varios gráficos, el
+        botón se llama \boton{Descargar todos} y los apila en
+        \textbf{una sola imagen}.
+  \item \boton{Copiar al portapapeles} / \boton{Copiar todos}: copia la imagen
+        (siempre en PNG) para pegarla directamente en Word, PowerPoint, correo,
+        etc.
+\end{itemize}
+
+Cuando hay más de un gráfico, al pasar el cursor sobre cada uno aparecen
+\boton{Copiar} y \boton{Descargar} para exportarlo individualmente. El archivo
+se llama \texttt{grafico-AAAA-MM-DD.png} (o \texttt{.jpg}) con la fecha del
+día.
+
+La imagen exportada incluye título, leyenda, franjas, gráfico y tabla de
+estadísticas, en alta resolución.
+
+% =====================================================================
+\chapter{Pestaña Comparar}
+
+Permite superponer \textbf{dos periodos} de una misma métrica para ver cómo
+cambió: antes y después de un cambio, mes contra mes, servidor contra
+servidor, etc.
+
+\section{Configurar la comparación}
+
+\begin{enumerate}
+  \item En \textbf{Periodo A} y \textbf{Periodo B} elige el archivo y las
+        fechas \emph{desde} y \emph{hasta} (ambos días se incluyen completos).
+  \item En \campo{Métrica} elige el contador. Solo aparecen los que existen en
+        ambos periodos.
+  \item En \campo{Eje X} elige el modo:
+    \begin{description}
+      \item[Superpuesto.] Ambos periodos empiezan en el mismo punto (día 0)
+        y se dibujan uno encima del otro. Ideal para comparar periodos de
+        fechas diferentes. Al pasar el cursor se muestra la fecha real de cada
+        periodo.
+      \item[Calendario real.] Cada periodo se dibuja en sus fechas reales.
+    \end{description}
+\end{enumerate}
+
+\begin{nota}[Valores iniciales]
+Con un solo archivo cargado, la aplicación propone dividir su rango en dos
+mitades (A = primera mitad, B = segunda). Con dos o más archivos, propone el
+primero como A y el segundo como B, cada uno con su rango completo. Al
+cambiar el archivo de un periodo, las fechas se ajustan al rango completo de
+ese archivo.
+\end{nota}
+
+\section{Resultado}
+
+Se muestra un gráfico con ambos periodos (A en azul, B en rojo), las franjas
+de umbral si corresponde, y la tabla de estadísticas con tres filas:
+
+\begin{itemize}
+  \item \textbf{Periodo A} y \textbf{Periodo B}: condición, mínimo, promedio y
+        máximo \emph{del periodo elegido}.
+  \item \textbf{Cambio B vs A}: variación porcentual de mínimo, promedio y
+        máximo:
+        \[
+          \Delta\% = \frac{B - A}{|A|} \times 100
+        \]
+        En azul los aumentos y en ámbar las disminuciones. Si el valor de A es
+        0, se muestra «–».
+\end{itemize}
+
+El gráfico se exporta igual que en \pestana{Explorar}. En esta pestaña no hay
+zoom con el ratón; para acotar, ajusta las fechas de los periodos.
+
+Si aparece «No hay datos comparables», revisa que las fechas tengan datos en
+ambos periodos y que compartan al menos una métrica.
+
+% =====================================================================
+\chapter{Umbrales}
+
+\section{Conceptos}
+
+\begin{description}
+  \item[Perfil de umbrales.] Conjunto de reglas de una empresa o cliente
+    (por ejemplo \emph{SII} o \emph{TGR}). Solo hay un perfil activo a la vez;
+    se elige en el selector \campo{Umbrales} de la barra superior o en la
+    pestaña \pestana{Umbrales}. Al cambiarlo, los gráficos y alertas se
+    recalculan al instante.
+  \item[Regla.] Fila del perfil que dice qué contador vigilar y con qué
+    límites. Campos:
+    \begin{itemize}
+      \item \campo{Contador}: nombre descriptivo.
+      \item \campo{Patrón}: texto que debe aparecer en el nombre del contador
+            del CSV (ver más abajo).
+      \item \campo{Valor ideal}: texto libre que se muestra en el gráfico
+            (por ejemplo «$<$ 80\,\%»). Si se deja vacío, se genera solo.
+      \item \campo{Criterio}: cuándo se activa la alerta.
+      \item \campo{Warning} y \campo{Critical}: valores donde empiezan la zona
+            ámbar y la roja.
+    \end{itemize}
+\end{description}
+
+\subsection{Criterio y zonas}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{L{3.6cm}L{2.6cm}X}
+  \toprule
+  Criterio & Ejemplo & Zonas (\emph{v} = valor medido) \\
+  \midrule
+  \emph{Alerta si sube de ($>$)} \newline (menor es mejor) &
+    CPU $<$ 80\,\% &
+    \okz: $v \le$ Warning \newline
+    \warnz: Warning $< v \le$ Critical \newline
+    \critz: $v >$ Critical \\
+  \addlinespace
+  \emph{Alerta si baja de ($<$)} \newline (mayor es mejor) &
+    Cache hit $>$ 95\,\% &
+    \okz: $v \ge$ Warning \newline
+    \warnz: Critical $\le v <$ Warning \newline
+    \critz: $v <$ Critical \\
+  \addlinespace
+  \emph{Solo informativo} &
+    Transactions/sec &
+    No genera alertas ni franjas (valores «Variable»). \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+Por lo tanto, con \emph{sube de}, Critical debe ser \textbf{mayor} que
+Warning; con \emph{baja de}, \textbf{menor}. Las tablas de referencia de los
+clientes suelen indicar solo el valor ideal: úsalo como Warning y define tú
+un margen razonable para Critical.
+
+\subsection{Patrones}
+
+\begin{itemize}
+  \item \textbf{Texto simple:} la regla se aplica a toda serie cuyo nombre
+        \emph{contenga} ese texto, sin distinguir mayúsculas. Ejemplo:
+        \texttt{Lock Requests/sec}.
+  \item \textbf{Expresión regular:} si el patrón empieza y termina con
+        \texttt{/}, se interpreta como expresión regular (sin distinguir
+        mayúsculas). Ejemplo: \texttt{/Processor.*Time\$/}.
+  \item El patrón se compara con la clave \emph{Objeto\bs Contador} (sin
+        servidor ni prefijo de instancia SQL) o, en CSV que no son de Perfmon,
+        con el nombre de la columna.
+  \item \textbf{Prioridad:} si varias reglas coinciden con una serie, se aplica
+        \textbf{la primera de la lista}. Usa las flechas para reordenar.
+\end{itemize}
+
+\subsection{Variantes (perfil de uso)}
+Algunas reglas tienen valores distintos según el tipo de servidor. Por
+ejemplo, en el perfil SII, \emph{Buffer cache hit ratio} tiene las variantes
+\textbf{OLTP} ($>$ 95\,\%) y \textbf{OLAP} ($>$ 80\,\%). La variante se elige
+en la propia fila; al cambiarla, Warning y Critical toman los valores de esa
+variante, y si luego los editas, se guardan en la variante activa.
+
+\subsection{Reglas de relación}
+La regla \emph{Target vs Total Memory} del perfil SII no compara contra un
+número fijo: mide el \textbf{porcentaje del tiempo en que Total Server Memory
+supera a Target Server Memory}. No dibuja franjas ni genera eventos; su
+resultado aparece en la tabla \emph{Cumplimiento por archivo}.
+
+\section{Perfiles de fábrica}
+
+\subsection*{SII}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{XL{3.4cm}lrr}
+  \toprule
+  Contador & Valor ideal & Criterio & Warning & Critical \\
+  \midrule
+  Memory\bs Pages/sec & $<$ 20 & sube de & 20 & 40 \\
+  \% Processor Time & $<$ 80\,\% & sube de & 80 & 90 \\
+  Buffer cache hit ratio & $>$ 95\,\% (OLTP) \newline $>$ 80\,\% (OLAP) & baja de &
+    95 / 80 & 90 / 70 \\
+  Transactions/sec & Variable & informativo & -- & -- \\
+  Sesiones por día (User Connections) & Variable & informativo & -- & -- \\
+  SQL Compilations/sec & $\le$ 100 & sube de & 100 & 200 \\
+  Target vs Total Memory & Total $\le$ Target & relación & -- & -- \\
+  Locks: Lock Requests/sec & $<$ 1000 & sube de & 1000 & 2000 \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection*{TGR}
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{XL{3.4cm}lrr}
+  \toprule
+  Contador & Valor ideal & Criterio & Warning & Critical \\
+  \midrule
+  \% Processor Time & $<$ 80\,\% & sube de & 80 & 90 \\
+  Cache Hit Ratio & $>$ 80\,\% & baja de & 80 & 70 \\
+  User Connections & Variable & informativo & -- & -- \\
+  Costo de CPU por BDD & Variable & informativo & -- & -- \\
+  Gráfica Crecimiento BDD & Variable & informativo & -- & -- \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+En ambos perfiles, el valor \emph{Warning} es el valor ideal de la tabla de
+referencia del cliente y el valor \emph{Critical} es un margen propuesto, que
+se puede editar.
+
+\section{Pestaña Umbrales: editar perfiles}
+
+\subsection{Barra de perfiles}
+\begin{itemize}
+  \item Selector del perfil activo.
+  \item \boton{+ Nuevo}: crea un perfil vacío y abre la edición de sus
+        detalles.
+  \item \boton{Exportar}: descarga el perfil activo como
+        \texttt{umbrales-<nombre>.json}.
+  \item \boton{Importar}: carga un archivo \texttt{.json} de perfiles (ver
+        capítulo~\ref{cap:json}). Los perfiles importados se \textbf{agregan}
+        (no reemplazan a los existentes); si el nombre ya existe se le añade
+        un número, como «Cliente (2)».
+  \item Menú \boton{$\cdots$}:
+    \begin{itemize}
+      \item \emph{Duplicar perfil}: crea una copia editable.
+      \item \emph{Exportar todos los perfiles}: un solo archivo
+            \texttt{umbrales-todos.json}.
+      \item \emph{Restablecer valores de origen}: solo en SII y TGR; vuelve a
+            los valores de fábrica de ese perfil.
+      \item \emph{Eliminar perfil\ldots}: solo en perfiles creados por el
+            usuario; pide confirmación.
+      \item \emph{Restablecer perfiles de fábrica}: deja únicamente SII y TGR
+            con sus valores originales; \textbf{elimina todos los demás
+            perfiles y cambios}. Pide confirmación.
+    \end{itemize}
+  \item Indicador \textcolor{warnc}{\textbf{$\bullet$ Cambios sin exportar}}:
+        el perfil tiene cambios que aún no se guardaron en un archivo.
+\end{itemize}
+
+\subsection{Detalles del perfil}
+Con \boton{Editar detalles} se cambian el \textbf{nombre}, la
+\textbf{descripción} (de dónde salen los valores) y la marca
+\textbf{Borrador}. Un perfil en borrador muestra un aviso: sus alertas usan
+valores aún no confirmados.
+
+\subsection{Tabla de reglas}
+Cada fila es una regla y se edita directamente en la tabla; los cambios se
+guardan y se aplican al instante.
+
+\begin{itemize}
+  \item Flechas \boton{$\blacktriangle$} \boton{$\blacktriangledown$}:
+        cambian la prioridad.
+  \item Bajo el nombre se edita el patrón (en letra monoespaciada).
+  \item Con archivos cargados, una etiqueta indica cuántas series usan la
+        regla, o \emph{«sin coincidencias»} en ámbar si el patrón no coincide
+        con ninguna. Es la forma más rápida de comprobar un patrón.
+  \item \boton{\texttimes}: elimina la regla.
+  \item \boton{+ Agregar contador}: añade una regla nueva al final.
+\end{itemize}
+
+Los campos con problemas se marcan en rojo, con la explicación al pasar el
+cursor:
+\begin{itemize}
+  \item \emph{Falta el patrón: sin él la regla no coincide con ninguna serie.}
+  \item \emph{La expresión regular del patrón no es válida.}
+  \item \emph{Con «menor es mejor», Critical debe ser mayor que Warning.}
+  \item \emph{Con «mayor es mejor», Critical debe ser menor que Warning.}
+\end{itemize}
+
+\subsection{Cumplimiento por archivo}
+Al final de la pestaña, para cada archivo cargado y cada serie con regla, se
+muestra el \textbf{porcentaje de muestras} que estuvo en zona Warning y en
+zona Critical. Para la regla de relación de memoria se muestra el porcentaje
+del tiempo con Total $>$ Target.
+
+\section{Dónde se guardan los perfiles}
+
+Los perfiles se guardan automáticamente en el navegador. Esto significa que:
+
+\begin{aviso}
+\begin{itemize}[leftmargin=*]
+  \item Son propios de \textbf{ese navegador en ese equipo}: no se comparten
+        con otros equipos ni otros navegadores.
+  \item Se pierden si se borran los datos de navegación o se usa una ventana
+        privada o de incógnito.
+\end{itemize}
+Por eso conviene \textbf{exportar} los perfiles y guardar los \texttt{.json}
+en una carpeta compartida o en el repositorio. Para pasarlos a otro equipo,
+basta con importarlos allí.
+\end{aviso}
+
+Cuando una nueva versión de la aplicación cambia los valores de fábrica de SII
+o TGR, los perfiles que no editaste se actualizan solos. Si los editaste, se
+conservan tus cambios y aparece un aviso para que, si quieres, uses
+\emph{Restablecer valores de origen}.
+
+% =====================================================================
+\chapter{Formato de archivo de perfiles (JSON)}
+\label{cap:json}
+
+\section{Estructura}
+
+Un perfil es un archivo JSON con esta forma (es la plantilla estándar, que
+también está en \texttt{perfiles/plantilla.json} y en la pestaña
+\pestana{Instrucciones}):
+
+\begin{lstlisting}
+{
+  "format": "analizador-csv.umbrales",
+  "version": 1,
+  "name": "Nombre del perfil (empresa o cliente)",
+  "description": "De dónde salen estos valores (documento, fecha, responsable…)",
+  "draft": false,
+  "rules": [
+    {
+      "id": "cpu",
+      "name": "% Processor Time",
+      "ideal": "< 80 %",
+      "pat": "Processor(_Total)\\% Processor Time",
+      "dir": "lt",
+      "warn": 80,
+      "crit": 90
+    },
+    {
+      "id": "cache",
+      "name": "Buffer cache hit ratio",
+      "ideal": "> 95 %",
+      "pat": "Buffer cache hit ratio",
+      "dir": "gt",
+      "warn": 95,
+      "crit": 90
+    }
+  ]
+}
+\end{lstlisting}
+
+\section{Campos}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{lX}
+  \toprule
+  Campo & Descripción \\
+  \midrule
+  \texttt{format} & Siempre \texttt{"analizador-csv.umbrales"}. \\
+  \texttt{version} & Siempre \texttt{1}. \\
+  \texttt{name} & Nombre del perfil (empresa o cliente). \\
+  \texttt{description} & Opcional. Origen de los valores. \\
+  \texttt{draft} & Opcional. \texttt{true} si es borrador. \\
+  \texttt{updated} & Opcional. Fecha de exportación (la añade la aplicación). \\
+  \texttt{rules} & Lista de reglas. \\
+  \midrule
+  \texttt{rules[].id} & Identificador corto, único dentro del perfil. \\
+  \texttt{rules[].name} & Nombre del contador que se muestra. \\
+  \texttt{rules[].ideal} & Texto del valor ideal. \\
+  \texttt{rules[].pat} & Patrón (texto o \texttt{/regex/}). En JSON la barra
+                         invertida se escribe doble: \texttt{\bs\bs}. \\
+  \texttt{rules[].dir} & \texttt{"lt"} (alerta si sube), \texttt{"gt"}
+                         (alerta si baja) o \texttt{"none"} (informativo). \\
+  \texttt{rules[].warn}, \texttt{crit} & Límites numéricos. Con
+                         \texttt{"none"} usar 0. \\
+  \texttt{rules[].variants} & Opcional. Valores alternativos, p. ej.
+     \texttt{\{"OLTP": \{"warn": 95, "crit": 90\}, "OLAP": \{\ldots\}\}}. \\
+  \texttt{rules[].variant} & Opcional. Variante activa. \\
+  \texttt{rules[].relation} & Opcional. \texttt{true} para la regla de
+                              relación de memoria. \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+Un archivo también puede contener \textbf{varios perfiles}: es lo que genera
+\emph{Exportar todos los perfiles}
+(\texttt{\{"format": \ldots, "version": 1, "profiles": [ \ldots ]\}}). Se
+importa del mismo modo.
+
+\section{Validación al importar}
+
+La aplicación corrige automáticamente los detalles menores: un criterio
+desconocido pasa a \texttt{"none"}, un número inválido pasa a 0, un
+\texttt{id} vacío o repetido se reemplaza por uno único y una regla sin nombre
+recibe «Contador \emph{N}». Los errores graves se informan con un mensaje:
+
+\begin{itemize}
+  \item \emph{El archivo no es un JSON válido.}
+  \item \emph{El archivo no es un perfil de umbrales de esta herramienta.}
+  \item \emph{El archivo no tiene la lista de reglas («rules»).}
+  \item \emph{El archivo no contiene perfiles.}
+\end{itemize}
+
+% =====================================================================
+\chapter{Pestaña Instrucciones y perfiles asistidos por IA}
+
+La pestaña \pestana{Instrucciones} reúne una guía rápida, la explicación de
+los umbrales, la plantilla JSON (con los botones \boton{Copiar plantilla} y
+\boton{Descargar plantilla (.json)}) y un \textbf{prompt} listo para usar con
+un asistente de IA.
+
+\section{Crear el perfil de un cliente nuevo con IA}
+
+Cuando un cliente entrega su tabla de valores ideales (en texto, PDF o
+imagen):
+
+\begin{enumerate}
+  \item En \pestana{Instrucciones}, pulsa \boton{Copiar prompt}.
+  \item Pégalo en el asistente de IA de tu preferencia y adjunta o pega la
+        tabla del cliente donde indica
+        \emph{[PEGA AQUÍ LA TABLA O ADJUNTA LA IMAGEN]}.
+  \item Guarda la respuesta (solo el bloque JSON) en un archivo de texto con
+        extensión \texttt{.json}.
+  \item En \pestana{Umbrales}, pulsa \boton{Importar} y elige el archivo.
+  \item Revisa la tabla de reglas: corrige lo marcado en rojo, verifica que
+        cada regla tenga series asociadas y ajusta los valores
+        \emph{Critical} que la IA haya propuesto por su cuenta (el prompt le
+        pide que los indique al final de su respuesta).
+  \item Si los valores aún no están confirmados por el cliente, marca el
+        perfil como \textbf{Borrador}.
+  \item Exporta el perfil para guardar una copia.
+\end{enumerate}
+
+\begin{aviso}
+La IA puede equivocarse al transcribir valores o elegir el criterio. Revisa
+siempre el perfil generado contra la tabla original antes de usarlo en un
+informe.
+\end{aviso}
+
+% =====================================================================
+\chapter{Flujos de trabajo habituales}
+
+\section{Informe de rendimiento de un servidor}
+\begin{enumerate}
+  \item Carga el CSV de Perfmon del servidor.
+  \item Elige el perfil del cliente en el selector \campo{Umbrales}.
+  \item En el buscador, filtra y marca los contadores del informe.
+  \item Revisa la condición de cada contador en su tabla de estadísticas y
+        las alertas debajo de cada gráfico; usa \boton{Ver en gráfico} para
+        analizar los eventos críticos.
+  \item Con \boton{Restablecer zoom} vuelve a la vista completa y exporta con
+        \boton{Descargar todos} o copia cada gráfico al informe.
+  \item En \pestana{Umbrales}, consulta la tabla \emph{Cumplimiento por
+        archivo} para obtener los porcentajes de tiempo en Warning y Critical.
+\end{enumerate}
+
+\section{Comparar varios servidores}
+Carga un CSV por servidor y marca el mismo contador en cada uno: en
+\pestana{Explorar} se superponen en un único gráfico, con una fila por
+servidor en la tabla de estadísticas.
+
+\section{Antes y después de un cambio}
+Carga el archivo (o los dos archivos) y en \pestana{Comparar} define el
+periodo A (antes) y el B (después), en modo \emph{Superpuesto}. La fila
+\emph{Cambio B vs A} da la variación porcentual.
+
+% =====================================================================
+\chapter{Solución de problemas}
+
+\begin{description}
+  \item[No aparece mi archivo / «no se pudo leer».] Revisa el mensaje en el
+    panel lateral (ver la tabla de mensajes del capítulo de carga). Lo más
+    común es que la columna de fecha tenga un formato no admitido.
+  \item[Las fechas aparecen con día y mes invertidos.] Ocurre si todas las
+    fechas tienen día $\le$ 12 y no son del tipo año-mes-día; la aplicación
+    asume mes/día/año y lo avisa. Si es posible, exporta el CSV con fechas
+    \texttt{AAAA-MM-DD}.
+  \item[Los números salen mal o la columna no aparece como serie.] Si el CSV
+    usa coma decimal, el separador de columnas debe ser punto y coma. Una
+    columna con más de un 10\,\% de valores no numéricos se trata como texto.
+  \item[No puedo marcar más series.] El máximo es 8 series simultáneas.
+    Desmarca alguna.
+  \item[Un contador no muestra franjas ni alertas.] El perfil activo no tiene
+    regla para él, la regla es «Solo informativo», o el patrón no coincide.
+    En \pestana{Umbrales}, mira si la regla dice \emph{«sin coincidencias»}.
+  \item[Se aplica una regla distinta a la esperada.] Hay otra regla más arriba
+    cuyo patrón también coincide. Haz el patrón más específico o sube la
+    regla correcta.
+  \item[«El navegador no permitió copiar».] Usa \boton{Descargar gráfico}, o
+    usa la versión en línea (\texttt{https}).
+  \item[Perdí mis perfiles.] Se borraron los datos del navegador o se usó otro
+    navegador o equipo. Importa la última copia exportada.
+  \item[La imagen exportada tiene fondo oscuro.] El sistema está en modo
+    oscuro; cámbialo a modo claro antes de exportar si el informe lo
+    requiere.
+\end{description}
+
+% =====================================================================
+\appendix
+
+\chapter{Información para desarrolladores}
+
+\section{Estructura del proyecto}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{lX}
+  \toprule
+  Ruta & Contenido \\
+  \midrule
+  \texttt{src/core/parser/} & Lectura de CSV (\texttt{csv.ts}), fechas
+     (\texttt{time.ts}), cabeceras Perfmon (\texttt{perfmon.ts}) y armado del
+     conjunto de datos y estadísticas (\texttt{dataset.ts}). TypeScript. \\
+  \texttt{src/core/thresholds.ts} & Reglas, zonas, alertas, perfiles de
+     fábrica, importación y exportación de perfiles, plantilla y prompt. \\
+  \texttt{src/core/compare.ts} & Recorte por fechas y comparación de periodos. \\
+  \texttt{src/ui/app.js} & Interfaz: JavaScript sin frameworks y gráficos en
+     \emph{canvas}. \\
+  \texttt{src/ui/index.template.html} & Plantilla HTML y estilos. \\
+  \texttt{src/assets/} & Logos y favicon. \\
+  \texttt{perfiles/} & Perfiles SII y TGR y plantilla, como \texttt{.json}
+     descargables. \\
+  \texttt{scripts/build.mjs} & Une todo en \texttt{dist/index.html}. \\
+  \texttt{tests/} & Pruebas del núcleo. \\
+  \texttt{.github/workflows/deploy.yml} & Publicación en GitHub Pages. \\
+  \bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Comandos}
+
+Requiere Node.js 22 o superior (el build usa
+\texttt{stripTypeScriptTypes} de \texttt{node:module}).
+
+\begin{lstlisting}
+npm install         # dependencias de desarrollo (TypeScript)
+npm run build       # genera dist/index.html (un solo archivo)
+npm test            # pruebas del núcleo
+npm run typecheck   # verificación de tipos
+\end{lstlisting}
+
+\section{Publicación}
+
+Cada \emph{push} a la rama \texttt{main} ejecuta el flujo de GitHub Actions,
+que compila el proyecto y publica \texttt{dist/} en GitHub Pages. La versión
+del pie de página se toma de \texttt{package.json} (\texttt{1.0.0} se muestra
+como «Versión 1.0»).
+
+\section{Mantener los perfiles de fábrica}
+
+Los perfiles SII y TGR están definidos en \texttt{src/core/thresholds.ts}
+(\texttt{SII\_RULES}, \texttt{TGR\_RULES} y \texttt{BUILTIN\_PROFILES}) y
+copiados en \texttt{perfiles/*.json}. Al cambiar sus valores:
+\begin{enumerate}
+  \item edita \texttt{thresholds.ts};
+  \item sube el número \texttt{rev} del perfil en \texttt{BUILTIN\_PROFILES}
+        (así los navegadores de los usuarios que no lo editaron se actualizan
+        solos);
+  \item actualiza el \texttt{.json} correspondiente en \texttt{perfiles/}. La
+        prueba \texttt{tests/perfiles.test.ts} falla si quedan distintos.
+\end{enumerate}
+
+% =====================================================================
+\chapter{Glosario}
+
+\begin{description}
+  \item[Contador.] Métrica medida por Perfmon, por ejemplo
+    \emph{\% Processor Time}.
+  \item[Serie.] Columna numérica de un CSV: los valores de un contador a lo
+    largo del tiempo.
+  \item[Perfmon.] \emph{Performance Monitor}, la herramienta de Windows que
+    registra contadores de rendimiento y puede exportarlos a CSV.
+  \item[Perfil de umbrales.] Conjunto de reglas de alerta de una empresa o
+    cliente.
+  \item[Warning / Critical.] Zonas de advertencia (ámbar) y crítica (rojo).
+  \item[Evento o alerta.] Tramo continuo de muestras fuera del rango ideal.
+  \item[OLTP / OLAP.] Tipos de carga de una base de datos: transaccional
+    (muchas operaciones cortas) o analítica (consultas grandes).
+  \item[Patrón.] Texto o expresión regular que asocia una regla con las
+    series.
+\end{description}
+
+\end{document}

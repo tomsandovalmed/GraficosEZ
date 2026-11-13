@@ -1,0 +1,55 @@
+{
+  "format": "analizador-csv.umbrales",
+  "version": 1,
+  "name": "TGR",
+  "description": "Valores ideales de la tabla de referencia de TGR. El inicio de la zona Critical es un margen editable.",
+  "draft": false,
+  "updated": "2026-10-28",
+  "rules": [
+    {
+      "id": "cpu",
+      "name": "% Processor Time",
+      "ideal": "< 80 %",
+      "pat": "Processor(_Total)\\% Processor Time",
+      "dir": "lt",
+      "warn": 80,
+      "crit": 90
+    },
+    {
+      "id": "bchr",
+      "name": "Cache Hit Ratio",
+      "ideal": "> 80 %",
+      "pat": "Buffer cache hit ratio",
+      "dir": "gt",
+      "warn": 80,
+      "crit": 70
+    },
+    {
+      "id": "sess",
+      "name": "User Connections",
+      "ideal": "Variable",
+      "pat": "User Connections",
+      "dir": "none",
+      "warn": 0,
+      "crit": 0
+    },
+    {
+      "id": "cost",
+      "name": "Costo de CPU por BDD",
+      "ideal": "Variable",
+      "pat": "Costo de CPU",
+      "dir": "none",
+      "warn": 0,
+      "crit": 0
+    },
+    {
+      "id": "growth",
+      "name": "Gráfica Crecimiento BDD",
+      "ideal": "Variable",
+      "pat": "Crecimiento",
+      "dir": "none",
+      "warn": 0,
+      "crit": 0
+    }
+  ]
+}

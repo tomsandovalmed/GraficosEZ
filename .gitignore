@@ -1,0 +1,11 @@
+node_modules
+dist
+
+# auxiliares de LaTeX (docs/manual)
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
