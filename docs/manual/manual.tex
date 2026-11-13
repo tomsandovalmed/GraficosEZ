@@ -11,11 +11,18 @@
 \documentclass[11pt,a4paper,oneside]{report}
 
 % ---------- idioma y tipografía ----------
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{lmodern}
+% compila con pdfLaTeX (Overleaf por defecto) y con XeLaTeX / LuaLaTeX
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+  \usepackage[T1]{fontenc}
+  \usepackage{lmodern}
+\else
+  \usepackage{fontspec}
+\fi
 \usepackage[spanish,es-tabla,es-noshorthands,es-nodecimaldot]{babel}
 \usepackage{microtype}
+\emergencystretch=2em
 
 % ---------- página ----------
 \usepackage[margin=2.5cm,headheight=14pt]{geometry}
@@ -148,8 +155,8 @@ cualquier CSV que tenga una columna de fecha/hora y columnas numéricas.
   \item \textbf{Lectura automática de los CSV:} detecta el separador, la
         columna de fecha, el formato de fecha, las columnas numéricas y el
         servidor de origen, sin configurar nada.
-  \item \textbf{Reconocimiento de Perfmon:} entiende cabeceras del tipo
-        \texttt{\bs\bs SERVIDOR\bs Objeto\bs Contador}, incluidas las instancias
+  \item \textbf{Reconocimiento de Perfmon:} entiende cabeceras del
+        tipo \texttt{\bs\bs SERVIDOR\bs\allowbreak Objeto\bs\allowbreak Contador}, incluidas las instancias
         con nombre de SQL Server.
   \item \textbf{Gráficos interactivos:} un gráfico por contador, varios
         servidores superpuestos, zoom con el ratón, lectura de valores al pasar
@@ -599,7 +606,7 @@ ambos periodos y que compartan al menos una métrica.
 \subsection{Criterio y zonas}
 
 \begin{center}
-\begin{tabularx}{\textwidth}{L{3.6cm}L{2.6cm}X}
+\begin{tabularx}{\textwidth}{L{3.3cm}L{2.9cm}X}
   \toprule
   Criterio & Ejemplo & Zonas (\emph{v} = valor medido) \\
   \midrule
@@ -661,7 +668,7 @@ resultado aparece en la tabla \emph{Cumplimiento por archivo}.
 \subsection*{SII}
 \begin{center}
 \small
-\begin{tabularx}{\textwidth}{XL{3.4cm}lrr}
+\begin{tabularx}{\textwidth}{XL{3.0cm}lrr}
   \toprule
   Contador & Valor ideal & Criterio & Warning & Critical \\
   \midrule
@@ -681,7 +688,7 @@ resultado aparece en la tabla \emph{Cumplimiento por archivo}.
 \subsection*{TGR}
 \begin{center}
 \small
-\begin{tabularx}{\textwidth}{XL{3.4cm}lrr}
+\begin{tabularx}{\textwidth}{XL{3.0cm}lrr}
   \toprule
   Contador & Valor ideal & Criterio & Warning & Critical \\
   \midrule
@@ -800,7 +807,7 @@ también está en \texttt{perfiles/plantilla.json} y en la pestaña
   "format": "analizador-csv.umbrales",
   "version": 1,
   "name": "Nombre del perfil (empresa o cliente)",
-  "description": "De dónde salen estos valores (documento, fecha, responsable…)",
+  "description": "De dónde salen estos valores (documento, fecha, responsable...)",
   "draft": false,
   "rules": [
     {
